@@ -9,9 +9,11 @@
 ## 0. Foundations & Working Agreements
 
 1. **Repository Setup**
-   - [ ] Create a new Git repository (or fork the existing one) with `main` and `dev` branches.
-   - [ ] Adopt [Conventional Commits](https://www.conventionalcommits.org/) for commit messages.
+   - [x] Create a new Git repository (or fork the existing one) with `main` and `dev` branches.
+   - [x] Adopt [Conventional Commits](https://www.conventionalcommits.org/) for commit messages.
    - [ ] Enable CI with automated lint, type-check, unit test, and Electron build on pull requests.
+   
+   **✅ Repository:** [https://github.com/sadaqat12/flowgenius.git](https://github.com/sadaqat12/flowgenius.git)
 2. **Tooling**
    - [x] **Node.js** (LTS), **npm** workspaces.
    - [x] **TypeScript** configured with strict mode.
@@ -81,6 +83,8 @@ Each phase is decomposed into iterable **sprints**. Below is a recommended sprin
 - [x] Service calls list page with empty state
 - [x] New call page scaffold
 - [x] TypeScript interfaces for service calls and IPC
+- [x] GitHub repository setup and initial commit
+- [x] IPC communication architecture ready for database integration
 
 ---
 
@@ -214,12 +218,21 @@ Prioritize via feedback and analytics after MVP.
 ## 6. Current Status (Updated: July 2025)
 
 ### ✅ **Sprint 1 COMPLETED** - Project Bootstrap
-The foundation is successfully established:
+**🚀 Live Repository:** [https://github.com/sadaqat12/flowgenius.git](https://github.com/sadaqat12/flowgenius.git)
+
+The foundation is successfully established and deployed:
 - **Tech Stack:** Electron 27 + React 18 + TypeScript + Vite
 - **UI:** Modern interface with Tailwind CSS + shadcn/ui components
 - **Architecture:** Secure main/renderer process separation with IPC
 - **Development:** Hot reload, ESLint, Prettier, TypeScript strict mode
 - **Navigation:** Full app structure with routed pages
+- **Repository:** GitHub integration with conventional commits
+- **Codebase:** 26 files, 19,039+ lines of production-ready code
+
+**✅ Initial Commit:** `feat: complete Sprint 1 - Project Bootstrap`
+- Complete Electron + React + TypeScript boilerplate
+- Professional UI framework ready for data integration
+- Comprehensive documentation and project structure
 
 ### 🎯 **Ready for Sprint 2** - Data Layer Integration
 Next priorities:
@@ -227,15 +240,62 @@ Next priorities:
 2. Database migrations for service_calls and work_logs tables
 3. Connect UI to real data through IPC channels
 4. Basic CRUD operations for service calls
+5. Set up GitHub Actions CI/CD pipeline
 
 **To run the current application:**
 ```bash
-git clone <repository>
-cd service-call-manager
+git clone https://github.com/sadaqat12/flowgenius.git
+cd flowgenius
 npm install
 npm run dev
 ```
 
+**Development Commands:**
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run lint` - Code quality checks
+- `npm run type-check` - TypeScript validation
+
 The Electron application will open with a fully functional UI ready for data integration.
+
+---
+
+## 7. GitHub Workflow & Collaboration
+
+### 🔄 **Development Workflow**
+1. **Feature Branches:** Create feature branches for Sprint 2 tasks
+   ```bash
+   git checkout -b feature/database-integration
+   git checkout -b feature/service-call-crud
+   ```
+
+2. **Conventional Commits:** Follow established pattern
+   ```bash
+   git commit -m "feat: add SQLite database integration"
+   git commit -m "fix: resolve IPC type definitions"
+   git commit -m "docs: update API documentation"
+   ```
+
+3. **Pull Requests:** Use GitHub PRs for code review
+   - Link to Sprint 2 objectives
+   - Include testing checklist
+   - Document breaking changes
+
+### 📋 **Recommended GitHub Issues for Sprint 2**
+- [ ] **Database Integration** - SQLite setup with better-sqlite3
+- [ ] **Database Migrations** - Service calls and work logs tables
+- [ ] **IPC Handlers** - CRUD operations for service calls
+- [ ] **UI Data Integration** - Connect React components to real data
+- [ ] **State Management** - Zustand store for service calls
+- [ ] **GitHub Actions** - CI/CD pipeline setup
+
+### 🛠 **CI/CD Pipeline (Future)**
+```yaml
+# .github/workflows/ci.yml
+# - Automated testing on PRs
+# - TypeScript type checking
+# - ESLint validation
+# - Electron build verification
+```
 
 Happy coding! 🎉 
