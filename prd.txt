@@ -1,0 +1,171 @@
+Below is a proposed Product Requirements Document (PRD) and high-level architecture for your desktop “Service Call Manager” application, built on Electron (Windows/macOS/Linux) with AI-powered workflows via LangGraph and/or n8n.
+
+---
+
+## 1. Overview
+
+**Goal:** Streamline creation, tracking, and execution of appliance repair service calls, and empower technicians with AI-driven helpers and background automation.
+
+**Primary Users:**
+
+* **Dispatcher / Office Staff:** Create new calls, update statuses, print daily sheets.
+* **Technician:** View assigned calls, record work done, capture notes on-site.
+* **Manager:** Review historical data, run analytics, configure workflows.
+
+---
+
+## 2. Key Features & User Stories
+
+### 2.1 Service Call Lifecycle
+
+* **Create New Call**
+
+  * Fields: Customer Name, Phone, Address, Problem Description, Call Type (Landlord / Extra / Warranty), Scheduled Date/Time.
+* **View Open Calls**
+
+  * Filter by date, status (New, In Progress, On Hold, Completed).
+* **Update Call Status & Notes**
+
+  * Tech enters “Work Performed,” parts used, resolution notes.
+* **Archive & Search Past Calls**
+
+  * Full-text search on customer, address, date range, tags.
+
+### 2.2 Daily Service Sheet
+
+* **Generate Printable Sheet** for a selected date:
+
+  * Ordered list of calls with Phone, Address, Problem, Call Type, blank “Tech Notes” fields.
+* **One-Click Print / Export PDF**.
+
+### 2.3 Intelligent Workflow Automations
+
+* **Auto-Reminders & Notifications**
+
+  * Reminder when a call is not updated within X hours.
+* **Smart Tagging & Categorization**
+
+  * AI suggests call tags (e.g., “Electrical,” “Leak,” “Installation”) based on description.
+* **Auto-Completion**
+
+  * Suggest common repair steps or parts based on problem description.
+* **Background Sync & Backup**
+
+  * Periodic local backup of database; optional cloud sync.
+
+---
+
+## 3. Technical Requirements
+
+| Component           | Recommendation                                                   |
+| ------------------- | ---------------------------------------------------------------- |
+| **Platform**        | Electron (cross-platform), Node.js + Chromium                    |
+| **Local DB**        | SQLite or low-overhead Postgres (via Supabase’s local emulation) |
+| **Workflow Engine** | LangGraph (JS SDK) and/or n8n (embedded)                         |
+| **AI APIs**         | OpenAI API (GPT models) or local Llama-family model              |
+| **UI Framework**    | React + Tailwind (inside Electron)                               |
+| **Printing**        | PDFKit or built-in Chromium print-to-PDF                         |
+
+---
+
+## 4. Architecture & Data Model
+
+### 4.1 High-Level Modules
+
+1. **UI Layer (Electron + React)**
+2. **Service Layer**
+
+   * CallService: CRUD calls
+   * WorkflowService: Trigger/query LangGraph/n8n flows
+3. **Data Layer**
+
+   * SQLite DB
+4. **Workflow Engine**
+
+   * Embedded n8n instance or LangGraph runtime
+5. **AI Adapter**
+
+   * Abstracts calls to OpenAI/local models
+
+### 4.2 Database Schema (simplified)
+
+```sql
+CREATE TABLE service_calls (
+  id            INTEGER PRIMARY KEY,
+  customer_name TEXT NOT NULL,
+  phone         TEXT NOT NULL,
+  address       TEXT NOT NULL,
+  problem_desc  TEXT NOT NULL,
+  call_type     TEXT CHECK(call_type IN ('Landlord','Extra','Warranty')),
+  status        TEXT CHECK(status IN ('New','InProgress','OnHold','Completed')) DEFAULT 'New',
+  scheduled_at  DATETIME,
+  created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE work_logs (
+  id            INTEGER PRIMARY KEY,
+  call_id       INTEGER REFERENCES service_calls(id),
+  notes         TEXT,
+  parts_used    TEXT,
+  logged_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+## 5. LangGraph / n8n Workflow Examples
+
+| Use Case                | Trigger                       | Workflow Description                                              |
+| ----------------------- | ----------------------------- | ----------------------------------------------------------------- |
+| **Stale Call Reminder** | Call status unchanged ≥ 8 hrs | n8n checks DB, sends desktop notification via Electron’s API.     |
+| **Auto-Tag Suggestion** | New call created              | LangGraph analyzes `problem_desc`, writes back suggested tags.    |
+| **Daily Backup**        | App startup or schedule       | Workflow zips DB file, saves to local backup folder.              |
+| **Parts Reorder Alert** | Parts usage logged            | If `parts_used` count > threshold, trigger email reorder request. |
+
+---
+
+## 6. User Experience Flows
+
+1. **Dispatcher opens app** → Dashboard shows Today’s Calls + Alerts.
+2. **Dispatcher clicks “New Call”** → Form opens → fills data → Submit → stored & workflow for auto-tagging runs in background.
+3. **Tech logs in** → Sees list for Today → clicks Call → fills “Work Performed” → Save → optional reorder workflow triggers.
+4. **Dispatcher clicks “Print Sheet”** → Sheet modal opens → “Print” → system print dialog/PDF export.
+
+---
+
+## 7. Implementation Phases
+
+1. **Phase 1: MVP**
+
+   * Electron + React skeleton
+   * CRUD for service calls & work logs
+   * Print-to-PDF daily sheet
+
+2. **Phase 2: Workflow Integration**
+
+   * Embed n8n or LangGraph runtime
+   * Implement at least two automated workflows (e.g., stale-call reminder, backup).
+
+3. **Phase 3: AI-Driven Enhancements**
+
+   * Hook into OpenAI or local LLM for auto-tagging and suggestions
+   * UI for accepting/rejecting AI suggestions
+
+4. **Phase 4: Polish & Deploy**
+
+   * Packaging for Windows/macOS/Linux
+   * Auto-update mechanism
+   * User settings & export/import
+
+---
+
+## 8. Next Steps
+
+* **Set up repo** with Electron + React boilerplate.
+* **Choose & configure** local DB (SQLite).
+* **Prototype** “New Call” form + list view.
+* **Embed** n8n container or install LangGraph SDK.
+* **Define** initial workflows in YAML/JSON.
+
+With this roadmap and PRD in hand, a small team can begin parallelizing UI work, data modeling, and workflow authoring. Let me know where you’d like to dive deeper!
