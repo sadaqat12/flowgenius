@@ -29,6 +29,9 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "security:scan": "gitleaks detect --config .gitleaks.toml --verbose",
+    "security:scan-staged": "gitleaks protect --config .gitleaks.toml --verbose",
+    "security:baseline": "gitleaks detect --config .gitleaks.toml --baseline-path .gitleaks-baseline.json",
     "prepare": "husky install"
   },
   "dependencies": {
@@ -117,4 +120,4 @@
       "target": "AppImage"
     }
   }
-} 
+}

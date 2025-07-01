@@ -57,6 +57,8 @@ This will start both the Vite development server and the Electron application.
 - `npm run format` - Format code with Prettier
 - `npm run type-check` - Run TypeScript type checking
 - `npm test` - Run tests
+- `npm run security:scan` - Scan for secrets with Gitleaks
+- `npm run security:scan-staged` - Pre-commit security check
 
 ## Project Structure
 
@@ -100,12 +102,45 @@ src/
 - [ ] Auto-update mechanism
 - [ ] Installation packages
 
+## Security
+
+This project uses [Gitleaks](https://github.com/gitleaks/gitleaks) for secret scanning to prevent accidental commits of sensitive information.
+
+### Setup Gitleaks
+
+```bash
+# macOS
+brew install gitleaks
+
+# Linux/macOS (alternative)
+curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/scripts/install.sh | sh -s -- -b /usr/local/bin
+
+# Windows
+choco install gitleaks
+```
+
+### Security Commands
+
+```bash
+# Scan entire repository
+npm run security:scan
+
+# Scan staged files (recommended before commits)
+npm run security:scan-staged
+
+# Create baseline for existing repositories
+npm run security:baseline
+```
+
+See [docs/SECURITY.md](docs/SECURITY.md) for comprehensive security guidelines.
+
 ## Contributing
 
 1. Follow the existing code style and conventions
 2. Run tests and linting before submitting PRs
-3. Use conventional commits for commit messages
-4. Update documentation for new features
+3. **Run security scan** before committing: `npm run security:scan-staged`
+4. Use conventional commits for commit messages
+5. Update documentation for new features
 
 ## License
 

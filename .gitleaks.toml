@@ -1,0 +1,66 @@
+# Gitleaks configuration for Service Call Manager
+# https://github.com/gitleaks/gitleaks
+
+title = "Service Call Manager - Gitleaks Configuration"
+
+[extend]
+# Use the default gitleaks configuration as a base
+useDefault = true
+
+# Additional custom rules for this project
+[[rules]]
+id = "electron-main-process-secrets"
+description = "Detect secrets in Electron main process files"
+regex = '''(?i)(api[_-]?key|secret|token|password)\s*[=:]\s*['""][^''""\s]{8,}['""]'''
+path = '''src/main/.*\.(ts|js)$'''
+
+[[rules]]
+id = "env-files"
+description = "Detect secrets in environment files"
+regex = '''(?i)(api[_-]?key|secret|token|password)\s*[=:]\s*[^#\s]{8,}'''
+path = '''\.env.*$'''
+
+[[rules]]
+id = "database-credentials"
+description = "Detect database credentials"
+regex = '''(?i)(db[_-]?password|database[_-]?url|connection[_-]?string)\s*[=:]\s*['""][^''""\s]{8,}['""]'''
+
+# Allowlist patterns to reduce false positives
+[allowlist]
+description = "Allowlist for common false positives"
+paths = [
+    '''node_modules/.*''',
+    '''dist/.*''',
+    '''build/.*''',
+    '''.*\.lock$''',
+    '''.*package-lock\.json$''',
+]
+
+regexes = [
+    '''(?i)example[_-]?key''',
+    '''(?i)test[_-]?secret''',
+    '''(?i)placeholder''',
+    '''(?i)your[_-]?api[_-]?key[_-]?here''',
+    '''(?i)lorem[_-]?ipsum''',
+]
+
+# Entropy detection for high-entropy strings
+[allowlist.commits]
+# Add commit SHAs to allowlist if needed
+# "commit-sha-here"
+
+[allowlist.regexTarget]
+# Target specific parts of files
+# "file-content"
+
+# Stop scanning at specified paths
+[allowlist.stopwords]
+# Common stopwords that indicate non-secrets
+stopwords = [
+    "example",
+    "placeholder", 
+    "template",
+    "demo",
+    "test",
+    "development",
+] 

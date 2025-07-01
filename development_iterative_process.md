@@ -191,8 +191,12 @@ Each phase is decomposed into iterable **sprints**. Below is a recommended sprin
 
 ### Security & Compliance
 
-- [ ] Store secrets in `.env` (never commit).
-- [ ] Use Electron context-isolation and preload scripts.
+- [x] Store secrets in `.env` (never commit).
+- [x] Use Electron context-isolation and preload scripts.
+- [x] **Gitleaks** integration for secret scanning.
+- [x] Security documentation and guidelines.
+- [ ] Pre-commit hooks for automated security scanning.
+- [ ] GitHub Actions security workflow.
 
 ---
 
@@ -227,7 +231,8 @@ The foundation is successfully established and deployed:
 - **Development:** Hot reload, ESLint, Prettier, TypeScript strict mode
 - **Navigation:** Full app structure with routed pages
 - **Repository:** GitHub integration with conventional commits
-- **Codebase:** 26 files, 19,039+ lines of production-ready code
+- **Security:** Gitleaks integration for secret scanning
+- **Codebase:** 26+ files, 19,039+ lines of production-ready code
 
 **✅ Initial Commit:** `feat: complete Sprint 1 - Project Bootstrap`
 - Complete Electron + React + TypeScript boilerplate
@@ -255,6 +260,8 @@ npm run dev
 - `npm run build` - Build for production
 - `npm run lint` - Code quality checks
 - `npm run type-check` - TypeScript validation
+- `npm run security:scan` - Security secret scanning
+- `npm run security:scan-staged` - Pre-commit security check
 
 The Electron application will open with a fully functional UI ready for data integration.
 
@@ -287,7 +294,8 @@ The Electron application will open with a fully functional UI ready for data int
 - [ ] **IPC Handlers** - CRUD operations for service calls
 - [ ] **UI Data Integration** - Connect React components to real data
 - [ ] **State Management** - Zustand store for service calls
-- [ ] **GitHub Actions** - CI/CD pipeline setup
+- [ ] **Security Automation** - Pre-commit hooks with Gitleaks
+- [ ] **GitHub Actions** - CI/CD pipeline with security scanning
 
 ### 🛠 **CI/CD Pipeline (Future)**
 ```yaml
@@ -295,7 +303,25 @@ The Electron application will open with a fully functional UI ready for data int
 # - Automated testing on PRs
 # - TypeScript type checking
 # - ESLint validation
+# - Security scanning with Gitleaks
+# - Dependency vulnerability scanning
 # - Electron build verification
+# - License compliance checking
+```
+
+### 🔒 **Security Commands**
+```bash
+# Scan for secrets in entire repository
+npm run security:scan
+
+# Scan staged files (pre-commit)
+npm run security:scan-staged
+
+# Create security baseline
+npm run security:baseline
+
+# Install Gitleaks (macOS)
+brew install gitleaks
 ```
 
 Happy coding! 🎉 
