@@ -4,6 +4,8 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import DashboardPage from './pages/dashboard-page';
 import CallsPage from './pages/calls-page';
 import NewCallPage from './pages/new-call-page';
+import ServiceCallDetailsPage from './pages/service-call-details-page';
+import DailySheetPage from './pages/daily-sheet-page';
 import SettingsPage from './pages/settings-page';
 import MainLayout from './components/layout/main-layout';
 
@@ -31,6 +33,8 @@ function App() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/calls" element={<CallsPage />} />
             <Route path="/calls/new" element={<NewCallPage />} />
+            <Route path="/calls/:id" element={<ServiceCallDetailsPage />} />
+            <Route path="/daily-sheet" element={<DailySheetPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </MainLayout>

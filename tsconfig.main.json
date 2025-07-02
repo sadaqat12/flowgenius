@@ -1,17 +1,19 @@
 {
-  "extends": "./tsconfig.json",
   "compilerOptions": {
     "target": "ES2020",
     "module": "CommonJS",
     "lib": ["ES2020"],
-    "outDir": "dist/main",
-    "rootDir": "src/main",
+    "outDir": "dist",
+    "rootDir": "src",
     "moduleResolution": "node",
     "noEmit": false,
     "jsx": "preserve",
     "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
+    "strict": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
     "paths": {
       "@/shared/*": ["src/shared/*"]
     }

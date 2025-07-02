@@ -28,6 +28,17 @@ export const IPC_CHANNELS = {
   WORKFLOWS_GET_STATUS: 'workflows:get-status',
 } as const;
 
+// Service call statistics
+export interface ServiceCallStats {
+  total: number;
+  new: number;
+  scheduled: number;
+  inProgress: number;
+  onHold: number;
+  completed: number;
+  todaysTotal: number;
+}
+
 // Electron API Interface
 export interface ElectronAPI {
   getAppVersion: () => Promise<string>;
@@ -44,6 +55,8 @@ export interface ElectronAPI {
     getById: (id: string) => Promise<ServiceCall | null>;
     update: (id: string, data: ServiceCallUpdateData) => Promise<ServiceCall>;
     delete: (id: string) => Promise<boolean>;
+    getStats: () => Promise<ServiceCallStats>;
+    getTodaysCalls: () => Promise<ServiceCall[]>;
   };
 
   // File operations
@@ -54,6 +67,14 @@ export interface ElectronAPI {
   database: {
     backup: () => Promise<string>;
     restore: (filePath: string) => Promise<boolean>;
+  };
+
+  // Work logs
+  workLogs: {
+    create: (data: WorkLogCreateData) => Promise<WorkLog>;
+    getByCallId: (callId: string) => Promise<WorkLog[]>;
+    update: (id: string, data: WorkLogUpdateData) => Promise<WorkLog>;
+    delete: (id: string) => Promise<boolean>;
   };
 
   // Workflows
@@ -71,7 +92,8 @@ export interface ServiceCall {
   address: string;
   problemDesc: string;
   callType: 'Landlord' | 'Extra' | 'Warranty';
-  status: 'New' | 'InProgress' | 'OnHold' | 'Completed';
+  landlordName?: string;
+  status: 'New' | 'Scheduled' | 'InProgress' | 'OnHold' | 'Completed';
   scheduledAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -83,11 +105,12 @@ export interface ServiceCallCreateData {
   address: string;
   problemDesc: string;
   callType: 'Landlord' | 'Extra' | 'Warranty';
+  landlordName?: string;
   scheduledAt?: Date;
 }
 
 export interface ServiceCallUpdateData extends Partial<ServiceCallCreateData> {
-  status?: 'New' | 'InProgress' | 'OnHold' | 'Completed';
+  status?: 'New' | 'Scheduled' | 'InProgress' | 'OnHold' | 'Completed';
 }
 
 // Work Log Types
@@ -97,6 +120,17 @@ export interface WorkLog {
   notes: string;
   partsUsed?: string;
   loggedAt: Date;
+}
+
+export interface WorkLogCreateData {
+  callId: string;
+  notes: string;
+  partsUsed?: string;
+}
+
+export interface WorkLogUpdateData {
+  notes?: string;
+  partsUsed?: string;
 }
 
 // PDF Export Types

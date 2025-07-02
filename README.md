@@ -1,22 +1,23 @@
 # Service Call Manager
 
-A desktop application for managing appliance repair service calls, built with Electron, React, and TypeScript.
+A desktop application for managing appliance repair service calls, built with Electron, React, and TypeScript with Supabase backend.
 
 ## Features
 
 - **Service Call Management**: Create, track, and manage service calls
 - **Daily Service Sheets**: Generate printable daily schedules
-- **AI-Powered Workflows**: Automated reminders and smart tagging
+- **Real-time Data**: Live updates with Supabase integration
 - **Cross-Platform**: Runs on Windows, macOS, and Linux
 
 ## Tech Stack
 
 - **Frontend**: React 18, TypeScript, Tailwind CSS
 - **Desktop**: Electron
+- **Database**: Supabase (PostgreSQL)
 - **UI Components**: Radix UI primitives with shadcn/ui styling
 - **State Management**: Zustand
 - **Forms**: React Hook Form with Zod validation
-- **Database**: SQLite (planned)
+- **Build Tool**: Vite
 - **Workflows**: n8n / LangGraph (planned)
 - **AI**: OpenAI API / Local LLM (planned)
 
@@ -26,6 +27,7 @@ A desktop application for managing appliance repair service calls, built with El
 
 - Node.js 18+ (LTS recommended)
 - npm or pnpm
+- Supabase account (for database)
 
 ### Installation
 
@@ -40,7 +42,11 @@ A desktop application for managing appliance repair service calls, built with El
    npm install
    ```
 
-3. Start the development server:
+3. Set up Supabase:
+   - Follow the setup guide in `docs/supabase-setup.md`
+   - Create your `.env` file with Supabase credentials
+
+4. Start the development server:
    ```bash
    npm run dev
    ```
@@ -67,7 +73,12 @@ src/
 ├── main/              # Electron main process
 │   ├── main.ts        # Main process entry point
 │   ├── preload.ts     # Preload script for IPC
-│   └── services/      # Backend services
+│   ├── services/      # Backend services
+│   │   ├── call-service.ts    # Service call CRUD operations
+│   │   └── database/          # Database layer
+│   │       ├── database.ts    # Supabase connection
+│   │       └── models/        # Data models
+│   └── utils/         # Main process utilities
 ├── renderer/          # React renderer process
 │   ├── components/    # React components
 │   ├── pages/         # Page components
@@ -80,27 +91,56 @@ src/
 
 ## Development Phases
 
-### Phase 1: MVP Skeleton (Current)
+### Phase 1: MVP Skeleton ✅ COMPLETED
 - [x] Project setup with Electron + React + TypeScript
 - [x] Basic UI layout and navigation
 - [x] Development tooling (ESLint, Prettier, TypeScript)
-- [ ] SQLite database integration
-- [ ] Basic CRUD operations for service calls
+- [x] Supabase database integration
+- [x] Basic CRUD operations for service calls
 
-### Phase 2: Workflow Engine
+### Phase 2: Data Layer ✅ COMPLETED
+- [x] Supabase PostgreSQL integration
+- [x] Service call management with real-time data
+- [x] Dashboard with live statistics
+- [x] Secure IPC communication
+
+### Phase 3: Enhanced CRUD & State Management (Current)
+- [ ] Service call editing and status transitions
+- [ ] Work logs functionality
+- [ ] Search and filtering capabilities
+- [ ] Global state management optimization
+
+### Phase 4: Workflow Engine
 - [ ] n8n or LangGraph integration
 - [ ] Automated reminder workflows
 - [ ] Background task processing
 
-### Phase 3: AI Features
+### Phase 5: AI Features
 - [ ] OpenAI API integration
 - [ ] Smart tagging and categorization
 - [ ] Automated suggestions
 
-### Phase 4: Production Ready
+### Phase 6: Production Ready
 - [ ] Application packaging
 - [ ] Auto-update mechanism
 - [ ] Installation packages
+
+## Database Setup
+
+This application uses Supabase as the backend database. See `docs/supabase-setup.md` for detailed setup instructions.
+
+### Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+# Supabase Configuration
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_ANON_KEY=your-anon-key-here
+
+# Development
+NODE_ENV=development
+```
 
 ## Security
 

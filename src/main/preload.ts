@@ -10,7 +10,7 @@ const electronAPI = {
   maximize: () => ipcRenderer.invoke('window-maximize'),
   close: () => ipcRenderer.invoke('window-close'),
 
-  // Service calls API (to be implemented later)
+  // Service calls API
   serviceCalls: {
     create: (data: any) => ipcRenderer.invoke('service-calls:create', data),
     getAll: () => ipcRenderer.invoke('service-calls:get-all'),
@@ -18,12 +18,22 @@ const electronAPI = {
     update: (id: string, data: any) =>
       ipcRenderer.invoke('service-calls:update', id, data),
     delete: (id: string) => ipcRenderer.invoke('service-calls:delete', id),
+    getStats: () => ipcRenderer.invoke('service-calls:get-stats'),
+    getTodaysCalls: () => ipcRenderer.invoke('service-calls:get-todays-calls'),
   },
 
   // File operations
   exportPDF: (data: any) => ipcRenderer.invoke('export-pdf', data),
   showSaveDialog: (options: any) =>
     ipcRenderer.invoke('show-save-dialog', options),
+
+  // Work logs API
+  workLogs: {
+    create: (data: any) => ipcRenderer.invoke('work-logs:create', data),
+    getByCallId: (callId: string) => ipcRenderer.invoke('work-logs:get-by-call-id', callId),
+    update: (id: string, data: any) => ipcRenderer.invoke('work-logs:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('work-logs:delete', id),
+  },
 
   // Database operations
   database: {
@@ -42,6 +52,10 @@ const electronAPI = {
 
 // Expose the API to the renderer process
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);
+
+// Debug logging
+console.log('Preload script loaded successfully');
+console.log('ElectronAPI exposed to renderer process');
 
 // Define types for TypeScript
 export type ElectronAPI = typeof electronAPI;

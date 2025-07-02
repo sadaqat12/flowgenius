@@ -5,64 +5,64 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 240 10% 3.9%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 240 10% 3.9%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 240 10% 3.9%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 240 9% 10%;
+    --primary-foreground: 0 0% 98%;
 
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 84% 4.9%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
 
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 84% 4.9%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
 
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
 
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
   }
 }
 
@@ -121,4 +121,135 @@ textarea,
 
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--foreground));
+}
+
+/* Print styles for Daily Service Sheet */
+@media print {
+  /* Hide elements not needed in print */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Page setup */
+  @page {
+    size: A4;
+    margin: 1in;
+  }
+
+  /* Reset print background */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt;
+    line-height: 1.4;
+  }
+
+  /* Daily sheet specific print styles */
+  .daily-sheet {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Card styles for print */
+  .print\\:border-gray-300 {
+    border-color: #d1d5db !important;
+  }
+
+  .print\\:bg-gray-50 {
+    background-color: #f9fafb !important;
+  }
+
+  .print\\:shadow-none {
+    box-shadow: none !important;
+  }
+
+  .print\\:p-0 {
+    padding: 0 !important;
+  }
+
+  .print\\:m-0 {
+    margin: 0 !important;
+  }
+
+  /* Ensure proper page breaks */
+  .daily-sheet > div {
+    page-break-inside: avoid;
+  }
+
+  /* Service call cards should stay together */
+  .daily-sheet .border {
+    page-break-inside: avoid;
+    margin-bottom: 20px;
+  }
+
+  /* Typography adjustments for print */
+  h1 {
+    font-size: 24pt !important;
+    font-weight: bold !important;
+    text-align: center !important;
+    margin-bottom: 12pt !important;
+  }
+
+  h2 {
+    font-size: 18pt !important;
+    font-weight: bold !important;
+    margin-bottom: 8pt !important;
+  }
+
+  h3 {
+    font-size: 14pt !important;
+    font-weight: bold !important;
+    margin-bottom: 6pt !important;
+  }
+
+  h4 {
+    font-size: 12pt !important;
+    font-weight: bold !important;
+    margin-bottom: 4pt !important;
+  }
+
+  /* Input field styling for print */
+  .daily-sheet input[type="text"],
+  .daily-sheet textarea,
+  .daily-sheet .border {
+    border: 1px solid #374151 !important;
+    background: white !important;
+    padding: 4pt !important;
+  }
+
+  /* Ensure text is readable */
+  .text-muted-foreground {
+    color: #4b5563 !important;
+  }
+
+  /* Table-like structure for call details */
+  .grid {
+    display: block !important;
+  }
+
+  .grid > div {
+    display: block !important;
+    margin-bottom: 8pt !important;
+  }
+
+  /* Footer styling */
+  .daily-sheet footer,
+  .daily-sheet .border-t {
+    border-top: 1px solid #d1d5db !important;
+    margin-top: 16pt !important;
+    padding-top: 8pt !important;
+  }
+}
+
+/* Screen-only utility classes */
+@media screen {
+  .screen-only {
+    display: block;
+  }
+}
+
+@media print {
+  .screen-only {
+    display: none !important;
+  }
 }

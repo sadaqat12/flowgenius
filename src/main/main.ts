@@ -1,5 +1,12 @@
+// Load environment variables first
+import dotenv from 'dotenv';
+dotenv.config();
+
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
+import { callService } from './services/call-service';
+import { pdfService } from './services/pdf-service';
+import { addSampleData } from './utils/sample-data';
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -23,7 +30,7 @@ function createWindow(): void {
 
   // Load the app
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.loadURL('http://127.0.0.1:5173');
     // Open DevTools in development
     mainWindow.webContents.openDevTools();
   } else {
@@ -42,7 +49,21 @@ function createWindow(): void {
 }
 
 // This method will be called when Electron has finished initialization
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Initialize services
+  try {
+    await callService.initialize();
+    await pdfService.initialize();
+    console.log('Services initialized successfully');
+    
+    // Add sample data in development mode
+    if (isDev) {
+      await addSampleData();
+    }
+  } catch (error) {
+    console.error('Failed to initialize services:', error);
+  }
+
   createWindow();
 
   app.on('activate', () => {
@@ -78,6 +99,16 @@ ipcMain.handle('get-app-version', () => {
 });
 
 // Handle graceful shutdown
+app.on('before-quit', async () => {
+  try {
+    await callService.shutdown();
+    await pdfService.shutdown();
+    console.log('Services shut down successfully');
+  } catch (error) {
+    console.error('Error shutting down services:', error);
+  }
+});
+
 process.on('SIGTERM', () => {
   app.quit();
 });

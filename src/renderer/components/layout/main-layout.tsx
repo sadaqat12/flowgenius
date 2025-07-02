@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Phone, Plus, Settings } from 'lucide-react';
+import { Home, Phone, Plus, FileText, Settings } from 'lucide-react';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -9,6 +9,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
   { name: 'Service Calls', href: '/calls', icon: Phone },
   { name: 'New Call', href: '/calls/new', icon: Plus },
+  { name: 'Daily Sheet', href: '/daily-sheet', icon: FileText },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
