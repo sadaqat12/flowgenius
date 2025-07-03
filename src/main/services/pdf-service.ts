@@ -57,16 +57,17 @@ export class PDFService {
 
       console.log('Save path selected:', filePath);
 
-      // Generate high-quality HTML content for PDF
+      // Generate minimal HTML content for PDF
       console.log('Generating HTML content...');
       const htmlContent = this.generateSimplePDFHTML(data);
+      console.log('HTML content length:', htmlContent.length, 'characters');
       
       // Create a hidden window for PDF generation
       console.log('Creating print window...');
       printWindow = new BrowserWindow({
         width: 800,
         height: 600,
-        show: false, // Set to true for debugging
+        show: false, // Hidden for production use
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true,
@@ -82,63 +83,50 @@ export class PDFService {
           printWindow.close();
         }
         throw new Error('PDF generation timeout');
-      }, 30000);
+      }, 15000); // Reduced to 15 seconds total
 
       try {
-        // Use temporary file approach for better reliability with complex HTML
-        console.log('Using temporary file approach...');
-        tempFilePath = join(tmpdir(), `daily-sheet-${Date.now()}.html`);
+        // Use simple data URL approach - faster than file loading
+        console.log('Using data URL approach...');
+        const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`;
         
-        // Write HTML to temporary file
-        await writeFile(tempFilePath, htmlContent, 'utf8');
-        console.log('Temporary HTML file created:', tempFilePath);
-        
-        // Load the temporary file
-        await printWindow.loadFile(tempFilePath);
+        console.log('Loading data URL...');
+        await printWindow.loadURL(dataUrl);
 
-        // Wait for content to load with improved timeout handling
-        console.log('Waiting for page to finish loading...');
-        await new Promise((resolve, reject) => {
+        // Simple wait since data URLs load immediately
+        console.log('Waiting for page to render...');
+        await new Promise((resolve) => {
+          // Check if already loaded
+          if (!printWindow!.webContents.isLoading()) {
+            console.log('Page already loaded, proceeding immediately');
+            setTimeout(resolve, 100); // Very brief wait for rendering
+            return;
+          }
+          
+          // Otherwise wait for load event or timeout
           const loadTimeout = setTimeout(() => {
-            console.error('Page load timeout - will try fallback');
-            reject(new Error('Page load timeout'));
-          }, 25000); // Increased to 25 seconds
-
-          // Wait for both DOM and all resources to load
-          let domLoaded = false;
-          let resourcesLoaded = false;
-
-          const checkComplete = () => {
-            if (domLoaded && resourcesLoaded) {
-              clearTimeout(loadTimeout);
-              console.log('Page finished loading successfully');
-              resolve(true);
-            }
-          };
+            console.log('Using timeout fallback - page should be ready');
+            resolve(true);
+          }, 1000); // 1 second fallback
 
           printWindow!.webContents.once('did-finish-load', () => {
-            console.log('DOM finished loading');
-            domLoaded = true;
-            
-            // Give a moment for any remaining resources
-            setTimeout(() => {
-              resourcesLoaded = true;
-              checkComplete();
-            }, 2000);
+            console.log('Load event fired');
+            clearTimeout(loadTimeout);
+            setTimeout(resolve, 100);
           });
 
-          printWindow!.webContents.once('did-fail-load', (event, errorCode, errorDescription) => {
+          printWindow!.webContents.once('dom-ready', () => {
+            console.log('DOM ready event fired');
             clearTimeout(loadTimeout);
-            console.error('Page failed to load:', errorCode, errorDescription);
-            reject(new Error(`Page failed to load: ${errorDescription} (${errorCode})`));
+            setTimeout(resolve, 100);
           });
         });
 
         console.log('Generating PDF...');
-        // Generate PDF with optimized settings
+        // Generate PDF with simple settings for speed
         const pdfBuffer = await printWindow.webContents.printToPDF({
           pageSize: 'A4',
-          printBackground: true,
+          printBackground: false, // Faster without backgrounds
           margins: {
             top: 0.5,
             bottom: 0.5,
@@ -197,216 +185,80 @@ export class PDFService {
     const formattedDate = format(date, 'EEEE, MMMM d, yyyy');
     const generatedTime = format(new Date(), 'MMM d, yyyy h:mm a');
 
-    // Escape HTML to prevent issues
-    const escapeHtml = (text: string) => {
-      if (!text) return '';
-      return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    };
+    // Ultra-simple escape
+    const escape = (text: string) => text ? String(text).replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
 
-    // Helper function to generate AI analysis section
-    const generateAIAnalysisSection = (call: any) => {
-      const hasAIAnalysis = call.aiAnalysisResult || call.likelyProblem || (call.suggestedParts && call.suggestedParts.length > 0);
-      
-      if (!hasAIAnalysis) return '';
-
-      let aiSection = `
-        <div style="border-top: 1px solid #ccc; margin-top: 15px; padding-top: 15px; margin-bottom: 15px;">
-          <div style="font-weight: bold; margin-bottom: 10px;">🤖 AI Parts Analysis</div>
-      `;
-
-      // Likely Problem
-      if (call.likelyProblem) {
-        aiSection += `
-          <div style="margin-bottom: 10px;">
-            <div style="font-weight: bold; font-size: 10pt; margin-bottom: 3px;">Likely Problem:</div>
-            <div style="background: #f0f8ff; padding: 8px; border-radius: 3px; font-size: 10pt;">${escapeHtml(call.likelyProblem)}</div>
-          </div>
+    let callsText = '';
+    if (calls.length === 0) {
+      callsText = '<p>No service calls scheduled.</p>';
+    } else {
+      for (let i = 0; i < calls.length; i++) {
+        const call = calls[i];
+        callsText += `
+          <div style="border:1px solid black;margin:10px;padding:10px;">
+            <h3>${i + 1}. ${escape(call.customerName)}</h3>
+            <p>Phone: ${escape(call.phone)}</p>
+            <p>Address: ${escape(call.address)}</p>
+            <p>Type: ${escape(call.callType)} - Status: ${escape(call.status)}</p>
+            <p>Problem: ${escape(call.problemDesc)}</p>
         `;
-      }
 
-      // Appliance Details
-      if (call.aiAnalysisResult) {
-        const result = call.aiAnalysisResult;
-        const hasDetails = result.appliance || result.brand || result.urgency || result.estimatedDuration;
-        
-        if (hasDetails) {
-          aiSection += `
-            <div style="margin-bottom: 10px;">
-              <div style="font-weight: bold; font-size: 10pt; margin-bottom: 3px;">Appliance Details:</div>
-              <div style="background: #f5f5f5; padding: 8px; border-radius: 3px; font-size: 10pt;">
-          `;
+        // Add AI Analysis if exists
+        if (call.likelyProblem || call.suggestedParts?.length || call.aiAnalysisResult) {
+          callsText += '<h4>AI Analysis:</h4>';
           
-          if (result.appliance) {
-            aiSection += `<strong>Type:</strong> ${escapeHtml(result.appliance)}<br/>`;
-          }
-          if (result.brand) {
-            aiSection += `<strong>Brand:</strong> ${escapeHtml(result.brand)}<br/>`;
-          }
-          if (result.urgency) {
-            aiSection += `<strong>Urgency:</strong> ${escapeHtml(result.urgency)}<br/>`;
-          }
-          if (result.estimatedDuration) {
-            aiSection += `<strong>Est. Duration:</strong> ${escapeHtml(result.estimatedDuration)}`;
+          if (call.likelyProblem) {
+            callsText += `<p>Problem: ${escape(call.likelyProblem)}</p>`;
           }
           
-          aiSection += `
-              </div>
-            </div>
-          `;
-        }
-      }
-
-      // Recommended Parts
-      const hasRecommendedParts = (call.aiAnalysisResult && call.aiAnalysisResult.recommendedParts && call.aiAnalysisResult.recommendedParts.length > 0) || 
-                                  (call.suggestedParts && call.suggestedParts.length > 0);
-      
-      if (hasRecommendedParts) {
-        aiSection += `
-          <div style="margin-bottom: 10px;">
-            <div style="font-weight: bold; font-size: 10pt; margin-bottom: 3px;">Recommended Parts:</div>
-            <div style="background: #f0fff0; padding: 8px; border-radius: 3px; font-size: 10pt;">
-        `;
-        
-        if (call.aiAnalysisResult && call.aiAnalysisResult.recommendedParts && call.aiAnalysisResult.recommendedParts.length > 0) {
-          for (const part of call.aiAnalysisResult.recommendedParts) {
-            aiSection += `
-              <strong>${escapeHtml(part.name || '')}</strong> (${escapeHtml(part.partNumber || '')})<br/>
-              <span style="font-size: 9pt; color: #666;">${escapeHtml(part.category || '')} • Priority: ${escapeHtml(part.priority || '')} • $${part.price || '0'}</span><br/>
-            `;
-            if (part.description) {
-              aiSection += `<span style="font-size: 9pt; color: #666;">${escapeHtml(part.description)}</span><br/>`;
+          if (call.aiAnalysisResult?.appliance) {
+            callsText += `<p>Appliance: ${escape(call.aiAnalysisResult.appliance)}`;
+            if (call.aiAnalysisResult.urgency) {
+              callsText += ` - Urgency: ${escape(call.aiAnalysisResult.urgency)}`;
             }
+            callsText += '</p>';
           }
-        } else if (call.suggestedParts && call.suggestedParts.length > 0) {
-          for (const part of call.suggestedParts) {
-            aiSection += `• ${escapeHtml(part)}<br/>`;
-          }
-        }
-        
-        aiSection += `
-            </div>
-          </div>
-        `;
-      }
-
-      // Analysis Notes
-      if (call.aiAnalysisResult && call.aiAnalysisResult.analysisNotes && call.aiAnalysisResult.analysisNotes.length > 0) {
-        aiSection += `
-          <div style="margin-bottom: 10px;">
-            <div style="font-weight: bold; font-size: 10pt; margin-bottom: 3px;">Analysis Notes:</div>
-            <div style="background: #fff9e6; padding: 8px; border-radius: 3px; font-size: 10pt;">
-        `;
-        
-        for (const note of call.aiAnalysisResult.analysisNotes) {
-          aiSection += `• ${escapeHtml(note)}<br/>`;
-        }
-        
-        aiSection += `
-            </div>
-          </div>
-        `;
-      }
-
-      // Confidence Score
-      if (call.aiAnalysisResult && call.aiAnalysisResult.confidence) {
-        const confidence = Math.round(call.aiAnalysisResult.confidence * 100);
-        aiSection += `
-          <div style="font-size: 9pt; color: #666; margin-top: 5px;">
-            Analysis Confidence: ${confidence}%
-          </div>
-        `;
-      }
-
-      aiSection += `
-        </div>
-      `;
-
-      return aiSection;
-    };
-
-    const callsHtml = calls.length === 0 
-      ? '<div style="text-align: center; padding: 40px;"><p>No service calls scheduled for this date.</p></div>'
-      : calls.map((call, index) => {
-          const scheduledTime = call.scheduledAt ? format(new Date(call.scheduledAt), 'h:mm a') : 'Not scheduled';
-          const createdTime = format(new Date(call.createdAt), 'MMM d, h:mm a');
           
-          return `
-            <div style="border: 1px solid #ccc; margin-bottom: 20px; padding: 15px; page-break-inside: avoid;">
-              <div style="font-size: 14pt; font-weight: bold; margin-bottom: 10px;">
-                #${index + 1} - ${escapeHtml(call.customerName)}
-              </div>
-              <div style="margin-bottom: 5px;"><strong>Phone:</strong> ${escapeHtml(call.phone)}</div>
-              <div style="margin-bottom: 5px;"><strong>Address:</strong> ${escapeHtml(call.address)}</div>
-              ${call.landlordName ? `<div style="margin-bottom: 5px;"><strong>Landlord:</strong> ${escapeHtml(call.landlordName)}</div>` : ''}
-              <div style="margin-bottom: 5px;"><strong>Type:</strong> ${escapeHtml(call.callType)} | <strong>Status:</strong> ${escapeHtml(call.status)}</div>
-              <div style="margin-bottom: 5px;"><strong>Scheduled:</strong> ${scheduledTime} | <strong>Created:</strong> ${createdTime}</div>
-              <div style="margin-bottom: 15px;"><strong>Problem:</strong> ${escapeHtml(call.problemDesc)}</div>
-              
-              ${generateAIAnalysisSection(call)}
-              
-              <div style="border-top: 1px solid #ccc; margin-top: 15px; padding-top: 15px;">
-                <div><strong>Work Performed:</strong></div>
-                <div style="border: 1px solid #999; height: 50px; margin: 5px 0;"></div>
-                <div><strong>Parts Used:</strong></div>
-                <div style="border: 1px solid #999; height: 40px; margin: 5px 0;"></div>
-                <div><strong>Start Time:</strong> _____________ <strong>End Time:</strong> _____________</div>
-              </div>
-            </div>
-          `;
-        }).join('');
+          // Parts
+          if (call.aiAnalysisResult?.recommendedParts?.length) {
+            callsText += '<p>Parts: ';
+            for (let j = 0; j < call.aiAnalysisResult.recommendedParts.length; j++) {
+              const part = call.aiAnalysisResult.recommendedParts[j];
+              if (j > 0) callsText += ', ';
+              callsText += `${escape(part.name)} ($${part.price})`;
+            }
+            callsText += '</p>';
+          } else if (call.suggestedParts?.length) {
+            callsText += '<p>Parts: ';
+            for (let j = 0; j < call.suggestedParts.length; j++) {
+              if (j > 0) callsText += ', ';
+              callsText += escape(call.suggestedParts[j]);
+            }
+            callsText += '</p>';
+          }
+        }
+
+        callsText += `
+            <hr>
+            <p>Work Done: ___________________________</p>
+            <p>Parts Used: __________________________</p>
+            <p>Time: Start: _______ End: _______</p>
+          </div>
+        `;
+      }
+    }
 
     return `<!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(title)}</title>
-  <style>
-    * { 
-      margin: 0; 
-      padding: 0; 
-      box-sizing: border-box; 
-    }
-    body { 
-      font-family: Arial, Helvetica, sans-serif; 
-      font-size: 12pt; 
-      line-height: 1.4;
-      margin: 20px; 
-      background: white;
-      color: black;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    @media print {
-      body { margin: 0; }
-      @page { 
-        margin: 1in; 
-        size: A4;
-      }
-    }
-    @page {
-      margin: 1in;
-      size: A4;
-    }
-  </style>
+<title>${escape(title)}</title>
 </head>
 <body>
-  <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid black; padding-bottom: 15px;">
-    <h1 style="font-size: 24pt; margin-bottom: 10px;">Daily Service Sheet</h1>
-    <h2 style="font-size: 18pt; margin-bottom: 10px;">${escapeHtml(formattedDate)}</h2>
-    <p style="font-size: 12pt;">${calls.length} service call${calls.length !== 1 ? 's' : ''}</p>
-  </div>
-  
-  ${callsHtml}
-  
-  <div style="text-align: center; margin-top: 30px; font-size: 10pt; border-top: 1px solid #ccc; padding-top: 15px;">
-    Generated on ${escapeHtml(generatedTime)}
-  </div>
+<h1>Daily Service Sheet</h1>
+<h2>${escape(formattedDate)}</h2>
+<p>${calls.length} calls</p>
+${callsText}
+<p>Generated: ${escape(generatedTime)}</p>
 </body>
 </html>`;
   }
