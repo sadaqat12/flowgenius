@@ -1,0 +1,327 @@
+{
+  "name": "SMS Parts Recommendation Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "call-scheduled",
+        "options": {}
+      },
+      "id": "8b5b3a4c-8a7d-4b5e-9c8f-1a2b3c4d5e6f",
+      "name": "Call Scheduled Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "auto-generated"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate incoming data and prepare SMS message\nconst { customerName, customerPhone, scheduledDateTime, problemDesc, address, callId } = $json;\n\n// Format the scheduled date/time nicely\nconst scheduledDate = new Date(scheduledDateTime);\nconst formattedDateTime = scheduledDate.toLocaleDateString('en-US', {\n  weekday: 'long',\n  month: 'short', \n  day: 'numeric',\n  hour: 'numeric',\n  minute: '2-digit',\n  hour12: true\n});\n\n// Determine appliance type from problem description\nlet applianceType = 'appliance';\nconst problem = problemDesc.toLowerCase();\nif (problem.includes('washer') || problem.includes('washing machine')) {\n  applianceType = 'washer';\n} else if (problem.includes('dryer')) {\n  applianceType = 'dryer';\n} else if (problem.includes('stove') || problem.includes('oven') || problem.includes('range')) {\n  applianceType = 'stove/oven';\n} else if (problem.includes('fridge') || problem.includes('refrigerator')) {\n  applianceType = 'refrigerator';\n}\n\n// Create SMS message\nconst smsMessage = `Hi ${customerName}! Your ${applianceType} service is scheduled for ${formattedDateTime} at ${address}.\n\nTo help our technician bring the right parts, please reply with the model number. It's usually on a sticker inside the door or on the back of the unit.\n\nReply: MODEL [your model number]\n\nThanks! - Your Service Team`;\n\nreturn {\n  customerName,\n  customerPhone,\n  smsMessage,\n  callId,\n  applianceType,\n  problemDesc,\n  scheduledDateTime\n};"
+      },
+      "id": "1b2c3d4e-5f6a-7b8c-9d0e-1f2a3b4c5d6e",
+      "name": "Prepare SMS Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "twilioApi",
+        "resource": "sms",
+        "operation": "send",
+        "from": "={{$env.TWILIO_PHONE_NUMBER}}",
+        "to": "={{$json.customerPhone}}",
+        "message": "={{$json.smsMessage}}"
+      },
+      "id": "2c3d4e5f-6a7b-8c9d-0e1f-2a3b4c5d6e7f",
+      "name": "Send SMS Confirmation",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "path": "sms-response",
+        "options": {}
+      },
+      "id": "3d4e5f6a-7b8c-9d0e-1f2a-3b4c5d6e7f8a",
+      "name": "SMS Response Webhook", 
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 600],
+      "webhookId": "auto-generated"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse model number from SMS response\nconst incomingText = ($json.Body || '').toLowerCase().trim();\nconst customerPhone = $json.From;\n\n// Try to extract model number with various patterns\nlet modelNumber = null;\nlet hasModel = false;\n\n// Pattern 1: \"model ABC123\" or \"MODEL: ABC123\"\nlet modelMatch = incomingText.match(/model[:\\s]+([a-z0-9\\-_\\.]+)/i);\nif (modelMatch) {\n  modelNumber = modelMatch[1].toUpperCase();\n  hasModel = true;\n}\n\n// Pattern 2: Just a model number without \"model\" prefix\nif (!hasModel) {\n  // Look for alphanumeric patterns that could be model numbers\n  const alphanumericMatch = incomingText.match(/\\b([a-z]{1,4}[0-9]{3,8}[a-z0-9]*|[0-9]{3,8}[a-z]{1,4}[a-z0-9]*)\\b/i);\n  if (alphanumericMatch && alphanumericMatch[1].length >= 4) {\n    modelNumber = alphanumericMatch[1].toUpperCase();\n    hasModel = true;\n  }\n}\n\n// Pattern 3: Simple number-letter combinations\nif (!hasModel) {\n  const simpleMatch = incomingText.match(/\\b([a-z0-9]{4,15})\\b/i);\n  if (simpleMatch && /[0-9]/.test(simpleMatch[1]) && /[a-z]/i.test(simpleMatch[1])) {\n    modelNumber = simpleMatch[1].toUpperCase();\n    hasModel = true;\n  }\n}\n\n// Check if customer is asking for help\nconst needsHelp = incomingText.includes('help') || \n                 incomingText.includes('find') || \n                 incomingText.includes('where') ||\n                 incomingText.includes('don\\'t know') ||\n                 incomingText.includes('cannot find');\n\nreturn {\n  customerPhone,\n  modelNumber,\n  hasModel,\n  needsHelp,\n  originalText: $json.Body,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "4e5f6a7b-8c9d-0e1f-2a3b-4c5d6e7f8a9b",
+      "name": "Parse Model Number",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 600]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.hasModel}}",
+              "operation": "equal",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "id": "5f6a7b8c-9d0e-1f2a-3b4c-5d6e7f8a9b0c",
+      "name": "Has Model Number?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [680, 600]
+    },
+    {
+      "parameters": {
+        "url": "https://api.partselect.com/parts/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "={{$json.modelNumber}}"
+            },
+            {
+              "name": "symptoms",
+              "value": "={{$json.problemDesc}}"
+            },
+            {
+              "name": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6a7b8c9d-0e1f-2a3b-4c5d-6e7f8a9b0c1d",
+      "name": "Lookup Parts API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process parts API response and create recommendations\nconst apiResponse = $json;\nconst modelNumber = $json.modelNumber || 'Unknown';\nconst problemDesc = $json.problemDesc || '';\n\n// Sample parts processing (adapt based on your parts API response format)\nlet recommendedParts = [];\n\nif (apiResponse.parts && Array.isArray(apiResponse.parts)) {\n  // Process real API response\n  recommendedParts = apiResponse.parts\n    .filter(part => part.availability === 'in-stock')\n    .map(part => ({\n      name: part.name,\n      partNumber: part.partNumber,\n      price: part.price,\n      category: part.category,\n      confidence: calculateRelevance(part, problemDesc)\n    }))\n    .sort((a, b) => b.confidence - a.confidence)\n    .slice(0, 5);\n} else {\n  // Fallback: Rule-based parts recommendation\n  recommendedParts = generateFallbackParts(modelNumber, problemDesc);\n}\n\n// Calculate relevance score\nfunction calculateRelevance(part, symptoms) {\n  let score = 1;\n  const lowerSymptoms = symptoms.toLowerCase();\n  const lowerPartName = part.name.toLowerCase();\n  \n  // Increase score for symptom matches\n  if (lowerSymptoms.includes('not working') && lowerPartName.includes('control')) score += 3;\n  if (lowerSymptoms.includes('leak') && lowerPartName.includes('seal')) score += 5;\n  if (lowerSymptoms.includes('noise') && lowerPartName.includes('bearing')) score += 4;\n  if (lowerSymptoms.includes('heat') && lowerPartName.includes('element')) score += 5;\n  if (lowerSymptoms.includes('door') && lowerPartName.includes('latch')) score += 4;\n  \n  return score;\n}\n\n// Fallback parts generation\nfunction generateFallbackParts(model, problem) {\n  const parts = [];\n  const lowerProblem = problem.toLowerCase();\n  \n  if (lowerProblem.includes('washer')) {\n    if (lowerProblem.includes('leak')) parts.push({name: 'Door Seal', partNumber: 'Generic-DS-001', price: 45.99, category: 'seal'});\n    if (lowerProblem.includes('spin')) parts.push({name: 'Drive Belt', partNumber: 'Generic-DB-001', price: 25.99, category: 'belt'});\n    if (lowerProblem.includes('drain')) parts.push({name: 'Drain Pump', partNumber: 'Generic-DP-001', price: 65.99, category: 'pump'});\n  } else if (lowerProblem.includes('dryer')) {\n    if (lowerProblem.includes('heat')) parts.push({name: 'Heating Element', partNumber: 'Generic-HE-001', price: 55.99, category: 'heating'});\n    if (lowerProblem.includes('belt')) parts.push({name: 'Drive Belt', partNumber: 'Generic-DB-002', price: 29.99, category: 'belt'});\n  } else if (lowerProblem.includes('fridge') || lowerProblem.includes('refrigerator')) {\n    if (lowerProblem.includes('cool')) parts.push({name: 'Evaporator Fan', partNumber: 'Generic-EF-001', price: 75.99, category: 'cooling'});\n    if (lowerProblem.includes('ice')) parts.push({name: 'Ice Maker Assembly', partNumber: 'Generic-IM-001', price: 125.99, category: 'ice'});\n  }\n  \n  return parts.map(part => ({...part, confidence: 3}));\n}\n\nreturn {\n  modelNumber,\n  recommendedParts,\n  partsCount: recommendedParts.length,\n  apiUsed: !!apiResponse.parts,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "7b8c9d0e-1f2a-3b4c-5d6e-7f8a9b0c1d2e",
+      "name": "Process Parts Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 500]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3000/api/service-calls/update-parts",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "callId",
+              "value": "={{$json.callId}}"
+            },
+            {
+              "name": "modelNumber", 
+              "value": "={{$json.modelNumber}}"
+            },
+            {
+              "name": "recommendedParts",
+              "value": "={{JSON.stringify($json.recommendedParts)}}"
+            },
+            {
+              "name": "status",
+              "value": "Ready for Service"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8c9d0e1f-2a3b-4c5d-6e7f-8a9b0c1d2e3f",
+      "name": "Update Service Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1340, 500]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "twilioApi",
+        "resource": "sms",
+        "operation": "send",
+        "from": "={{$env.TWILIO_PHONE_NUMBER}}",
+        "to": "={{$json.customerPhone}}",
+        "message": "Perfect! We found parts for model {{$json.modelNumber}}. Our technician will bring:\n\n{{$json.recommendedParts.slice(0,3).map(p => '• ' + p.name).join('\\n')}}\n\nYour appointment is confirmed. We'll have everything needed for a quick repair!"
+      },
+      "id": "9d0e1f2a-3b4c-5d6e-7f8a-9b0c1d2e3f4a",
+      "name": "Confirm Parts to Customer",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "twilioApi",
+        "resource": "sms",
+        "operation": "send",
+        "from": "={{$env.TWILIO_PHONE_NUMBER}}",
+        "to": "={{$env.TECHNICIAN_PHONE_NUMBER}}",
+        "message": "📋 Service Call Update\n\nCustomer: {{$json.customerName}}\nModel: {{$json.modelNumber}}\nIssue: {{$json.problemDesc}}\n\nBring these parts:\n{{$json.recommendedParts.slice(0,5).map(p => '• ' + p.name + ' (' + p.partNumber + ')').join('\\n')}}\n\nCustomer confirmed - ready for service!"
+      },
+      "id": "0e1f2a3b-4c5d-6e7f-8a9b-0c1d2e3f4a5b",
+      "name": "Notify Technician",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1560, 500]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "twilioApi",
+        "resource": "sms",
+        "operation": "send",
+        "from": "={{$env.TWILIO_PHONE_NUMBER}}",
+        "to": "={{$json.customerPhone}}",
+        "message": "We'd be happy to help you find your model number! Here's where to look:\n\n🔹 Washer/Dryer: Inside the door frame\n🔹 Refrigerator: Inside on the side wall\n🔹 Stove/Oven: Behind the drawer or on the back\n🔹 Dishwasher: On the door frame\n\nLook for a sticker with letters & numbers. Reply MODEL [number] when you find it, or call us at {{$env.BUSINESS_PHONE}} for help!"
+      },
+      "id": "1f2a3b4c-5d6e-7f8a-9b0c-1d2e3f4a5b6c",
+      "name": "Send Help Message",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [900, 700]
+    }
+  ],
+  "connections": {
+    "Call Scheduled Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare SMS Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare SMS Data": {
+      "main": [
+        [
+          {
+            "node": "Send SMS Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SMS Response Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Model Number",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Model Number": {
+      "main": [
+        [
+          {
+            "node": "Has Model Number?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Model Number?": {
+      "main": [
+        [
+          {
+            "node": "Lookup Parts API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Help Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Parts API": {
+      "main": [
+        [
+          {
+            "node": "Process Parts Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Parts Data": {
+      "main": [
+        [
+          {
+            "node": "Update Service Call",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Confirm Parts to Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Service Call": {
+      "main": [
+        [
+          {
+            "node": "Notify Technician",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2025-01-02T22:00:00.000Z",
+      "updatedAt": "2025-01-02T22:00:00.000Z",
+      "id": "1",
+      "name": "customer-communication"
+    },
+    {
+      "createdAt": "2025-01-02T22:00:00.000Z", 
+      "updatedAt": "2025-01-02T22:00:00.000Z",
+      "id": "2",
+      "name": "parts-automation"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-02T22:00:00.000Z",
+  "versionId": "1"
+} 

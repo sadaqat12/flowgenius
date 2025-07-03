@@ -1,0 +1,145 @@
+{
+  "name": "ChatGPT Parts Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chatgpt-parts-analysis",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "23a1a0e3-bceb-4c3e-8b42-1e9c7d74a8a9",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        540,
+        460
+      ],
+      "webhookId": "chatgpt-parts-analysis"
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "gpt-3.5-turbo-1106"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\": \"system\", \"content\": \"You are an expert appliance repair technician. Your task is to analyze a given appliance model and problem description and return a structured JSON object. The JSON object must conform to the following schema:\\n\\n{\\\"success\\\": boolean, \\\"analysis\\\": {\\\"modelNumber\\\": string, \\\"appliance\\\": string, \\\"brand\\\": string, \\\"confidence\\\": number (0-100), \\\"recommendedParts\\\": [{\\\"name\\\": string, \\\"partNumber\\\": string, \\\"category\\\": string, \\\"priority\\\": \\\"high\\\"|\\\"medium\\\"|\\\"low\\\", \\\"price\\\": number, \\\"description\\\": string}], \\\"analysisNotes\\\": [string]}}\\n\\n- Do not include any explanatory text or markdown formatting in your response. \\n- The response must be only the raw JSON object.\\n- If you cannot find a part number, use \\\"N/A\\\".\"}, {\"role\": \"user\", \"content\": \"Model: {{ $json.modelNumber }}\\nProblem: {{ $json.problemDescription }}\\nAppliance: {{ $json.appliance }}\"}]"
+            },
+            {
+              "name": "response_format",
+              "value": "={{ { \"type\": \"json_object\" } }}"
+            },
+            {
+              "name": "max_tokens",
+              "value": 2000
+            },
+            {
+              "name": "temperature",
+              "value": 0.5
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a9d6e2f4-8c3b-4d5e-9f7a-2b1c8e6d0f3a",
+      "name": "ChatGPT API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [
+        760,
+        460
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.item.json.choices[0].message.content;\nconst parsed = JSON.parse(body);\n\n// Add a summary for logging/display\nparsed.summary = `Successfully analyzed ${parsed.analysis.modelNumber}. Found ${parsed.analysis.recommendedParts.length} parts with ${parsed.analysis.confidence}% confidence.`;\n\nreturn parsed;"
+      },
+      "id": "b8f5a6d2-1c4e-5f9a-7b3d-9e8c2f6a0b1c",
+      "name": "Extract and Summarize JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        980,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "c7d9e3f6-2a5b-4c8d-9e1f-8a9b6c5d4e3f",
+      "name": "Return Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        460
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "ChatGPT API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ChatGPT API": {
+      "main": [
+        [
+          {
+            "node": "Extract and Summarize JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract and Summarize JSON": {
+      "main": [
+        [
+          {
+            "node": "Return Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "2",
+  "id": "chatgpt-parts-analysis-workflow",
+  "tags": []
+} 

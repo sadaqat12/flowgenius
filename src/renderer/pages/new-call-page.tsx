@@ -26,6 +26,7 @@ function NewCallPage() {
     problemDesc: '',
     callType: 'Landlord',
     landlordName: '',
+    modelNumber: '',
     scheduledAt: undefined,
   });
 
@@ -180,6 +181,23 @@ function NewCallPage() {
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter landlord name for billing purposes..."
+                />
+              </div>
+
+              {/* Model Number */}
+              <div>
+                <label className="block text-sm font-medium mb-2" htmlFor="modelNumber">
+                  Model Number
+                  <span className="text-muted-foreground text-xs ml-1">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  id="modelNumber"
+                  name="modelNumber"
+                  value={formData.modelNumber || ''}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter appliance model number..."
                 />
               </div>
 

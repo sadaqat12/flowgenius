@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Calendar, Phone, MapPin, Search } from 'lucide-react';
+import { Plus, Calendar, Phone, MapPin, Search, AlertTriangle, Clock, RefreshCw } from 'lucide-react';
 import { useServiceCalls } from '../hooks/use-service-calls';
+import { useElectronAPI } from '../hooks/use-electron-api';
 import { ServiceCallActions } from '../components/features/service-calls/service-call-actions';
 import { EditServiceCallDialog } from '../components/features/service-calls/edit-service-call-dialog';
 import { Button } from '../components/ui';
@@ -10,10 +11,33 @@ import { ServiceCall, ServiceCallUpdateData } from '../../shared/types/ipc';
 
 function CallsPage() {
   const { serviceCalls, isLoading, error, updateServiceCall, deleteServiceCall } = useServiceCalls();
+  const { electronAPI } = useElectronAPI();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<ServiceCall['status'] | 'All'>('All');
   const [editingCall, setEditingCall] = useState<ServiceCall | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [staleCalls, setStaleCalls] = useState<ServiceCall[]>([]);
+  const [isCheckingStale, setIsCheckingStale] = useState(false);
+
+  // Check for stale calls on component mount
+  useEffect(() => {
+    checkForStaleCalls();
+  }, [electronAPI]);
+
+  const checkForStaleCalls = async () => {
+    if (!electronAPI) return;
+
+    try {
+      setIsCheckingStale(true);
+      const stale = await electronAPI.workflows.checkStaleCalls();
+      setStaleCalls(stale);
+      console.log('Stale calls found:', stale);
+    } catch (error) {
+      console.error('Error checking stale calls:', error);
+    } finally {
+      setIsCheckingStale(false);
+    }
+  };
 
   // Filter service calls based on search and status
   const filteredCalls = serviceCalls.filter(call => {
@@ -88,6 +112,64 @@ function CallsPage() {
           New Call
         </Link>
       </div>
+
+      {/* Stale Calls Alert Section */}
+      {staleCalls.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              <h2 className="text-lg font-semibold text-red-800">
+                Stale Calls Alert ({staleCalls.length})
+              </h2>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={checkForStaleCalls}
+              disabled={isCheckingStale}
+              className="flex items-center gap-1"
+            >
+              {isCheckingStale ? (
+                <>
+                  <RefreshCw className="h-3 w-3 animate-spin" />
+                  Checking...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-3 w-3" />
+                  Refresh
+                </>
+              )}
+            </Button>
+          </div>
+          <p className="text-sm text-red-700 mb-3">
+            These calls need immediate attention (not updated within threshold times)
+          </p>
+          <div className="space-y-2">
+            {staleCalls.map((call) => (
+              <div key={call.id} className="bg-white border border-red-200 rounded-md p-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <div>
+                    <p className="font-medium text-red-800">{call.customerName}</p>
+                    <p className="text-sm text-red-600">{call.address}</p>
+                    <p className="text-xs text-red-500">
+                      Status: {call.status} • Last updated: {format(new Date(call.updatedAt), 'MMM dd, yyyy HH:mm')}
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  to={`/calls/${call.id}`}
+                  className="text-sm bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition-colors"
+                >
+                  View Details
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Search and Filter Controls */}
       <div className="flex flex-col sm:flex-row gap-4">

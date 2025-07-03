@@ -1,12 +1,39 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { AlertTriangle, Clock, Phone, MapPin, RefreshCw } from 'lucide-react';
 import { useServiceCalls } from '../hooks/use-service-calls';
+import { useElectronAPI } from '../hooks/use-electron-api';
 import { format } from 'date-fns';
+import { ServiceCall } from '../../shared/types/ipc';
 
 function DashboardPage() {
   const { stats, serviceCalls, isLoading, error } = useServiceCalls();
+  const { electronAPI } = useElectronAPI();
+  const [staleCalls, setStaleCalls] = useState<ServiceCall[]>([]);
+  const [isCheckingStale, setIsCheckingStale] = useState(false);
 
   // Get recent calls (last 5)
   const recentCalls = serviceCalls.slice(0, 5);
+
+  // Check for stale calls on component mount
+  useEffect(() => {
+    checkForStaleCalls();
+  }, [electronAPI]);
+
+  const checkForStaleCalls = async () => {
+    if (!electronAPI) return;
+
+    try {
+      setIsCheckingStale(true);
+      const stale = await electronAPI.workflows.checkStaleCalls();
+      setStaleCalls(stale);
+      console.log('Stale calls found:', stale);
+    } catch (error) {
+      console.error('Error checking stale calls:', error);
+    } finally {
+      setIsCheckingStale(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -107,7 +134,76 @@ function DashboardPage() {
         </div>
       </div>
 
-      {/* Recent calls section */}
+      {/* Stale Calls Widget */}
+      <div className="bg-card rounded-lg border p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-orange-600" />
+            <h2 className="text-lg font-semibold">Stale Calls</h2>
+          </div>
+          <button
+            onClick={checkForStaleCalls}
+            disabled={isCheckingStale}
+            className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
+          >
+            {isCheckingStale ? (
+              <>
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                Checking...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-3 w-3" />
+                Refresh
+              </>
+            )}
+          </button>
+        </div>
+        
+        {staleCalls.length > 0 ? (
+          <div className="space-y-3">
+            <p className="text-sm text-red-600 mb-3">
+              {staleCalls.length} call{staleCalls.length > 1 ? 's' : ''} need immediate attention
+            </p>
+            {staleCalls.slice(0, 3).map((call) => (
+              <div key={call.id} className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-md">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <div>
+                    <p className="font-medium text-red-800">{call.customerName}</p>
+                    <p className="text-sm text-red-600">{call.address}</p>
+                    <p className="text-xs text-red-500">
+                      {call.status} • Last updated: {format(new Date(call.updatedAt), 'MMM dd, HH:mm')}
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  to={`/calls/${call.id}`}
+                  className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 transition-colors"
+                >
+                  View
+                </Link>
+              </div>
+            ))}
+            {staleCalls.length > 3 && (
+              <p className="text-sm text-muted-foreground text-center">
+                and {staleCalls.length - 3} more... 
+                <Link to="/calls" className="text-blue-600 hover:underline ml-1">
+                  View all calls
+                </Link>
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-4 text-muted-foreground">
+            <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-green-600" />
+            <p>No stale calls found</p>
+            <p className="text-sm">All calls are up to date</p>
+          </div>
+        )}
+      </div>
+
+      {/* Recent Calls */}
       <div className="bg-card rounded-lg border">
         <div className="p-6">
           <h2 className="text-xl font-semibold mb-4">Recent Service Calls</h2>

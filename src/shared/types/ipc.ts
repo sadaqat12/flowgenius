@@ -57,6 +57,7 @@ export interface ElectronAPI {
     delete: (id: string) => Promise<boolean>;
     getStats: () => Promise<ServiceCallStats>;
     getTodaysCalls: () => Promise<ServiceCall[]>;
+    fixStatuses: () => Promise<{ updated: number; errors: number }>;
   };
 
   // File operations
@@ -81,7 +82,26 @@ export interface ElectronAPI {
   workflows: {
     trigger: (name: string, data: any) => Promise<WorkflowResult>;
     getStatus: (id: string) => Promise<WorkflowStatus>;
+    autoTag: (callId: string) => Promise<any>;
+    checkStaleCalls: () => Promise<ServiceCall[]>;
+    // N8n integration
+    n8nStatus: () => Promise<N8nStatus>;
+    n8nWorkflows: () => Promise<N8nWorkflow[]>;
+    openN8nEditor: () => Promise<{ success: boolean; error?: string }>;
   };
+  
+  // Parts Analysis (ChatGPT via n8n)
+  callService: {
+    analyzeParts: (modelNumber: string, problemDescription: string) => Promise<{
+      success: boolean;
+      analysis?: PartsAnalysis;
+      error?: string;
+      summary: string;
+    }>;
+  };
+
+  // Allow renderer to listen to main process events
+  on: (channel: string, callback: (...args: any[]) => void) => () => void;
 }
 
 // Service Call Types
@@ -93,10 +113,15 @@ export interface ServiceCall {
   problemDesc: string;
   callType: 'Landlord' | 'Extra' | 'Warranty';
   landlordName?: string;
+  modelNumber?: string;
   status: 'New' | 'Scheduled' | 'InProgress' | 'OnHold' | 'Completed';
   scheduledAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+  // AI-generated fields
+  aiAnalysisResult?: AutoTagResult;
+  likelyProblem?: string;
+  suggestedParts?: string[];
 }
 
 export interface ServiceCallCreateData {
@@ -106,11 +131,16 @@ export interface ServiceCallCreateData {
   problemDesc: string;
   callType: 'Landlord' | 'Extra' | 'Warranty';
   landlordName?: string;
+  modelNumber?: string;
   scheduledAt?: Date;
 }
 
 export interface ServiceCallUpdateData extends Partial<ServiceCallCreateData> {
   status?: 'New' | 'Scheduled' | 'InProgress' | 'OnHold' | 'Completed';
+  // AI-generated fields
+  aiAnalysisResult?: AutoTagResult;
+  likelyProblem?: string;
+  suggestedParts?: string[];
 }
 
 // Work Log Types
@@ -161,6 +191,67 @@ export interface WorkflowStatus {
   status: 'pending' | 'running' | 'completed' | 'failed';
   progress?: number;
   message?: string;
+}
+
+// AI Analysis Types
+export interface AutoTagResult {
+  category?: string;
+  urgency?: 'Low' | 'Medium' | 'High' | 'Emergency';
+  estimatedDuration?: string;
+  suggestedParts?: string[];
+  confidence?: number;
+  likelyProblem?: string;
+  
+  // New ChatGPT analysis properties
+  modelNumber?: string;
+  appliance?: string;
+  brand?: string;
+  recommendedParts?: Array<{
+    name: string;
+    partNumber: string;
+    category: string;
+    priority: string;
+    price: number;
+    description: string;
+  }>;
+  analysisNotes?: string[];
+  timestamp?: string;
+  source?: string;
+}
+
+// N8n Integration Types
+export interface N8nStatus {
+  isReady: boolean;
+  serverUrl: string;
+}
+
+// Parts Analysis Types from call-service
+export interface PartsAnalysis {
+  modelNumber: string;
+  appliance: string;
+  brand: string;
+  confidence: number;
+  recommendedParts: Array<{
+    name: string;
+    partNumber: string;
+    category: string;
+    priority: string;
+    price: number;
+    description: string;
+  }>;
+  analysisNotes: string[];
+  timestamp?: string;
+  source?: string;
+}
+
+export interface N8nWorkflow {
+  id?: string;
+  name: string;
+  active: boolean;
+  nodes: any[];
+  connections: any;
+  settings?: any;
+  staticData?: any;
 }
 
 // Global Window Interface Extension

@@ -15,6 +15,16 @@ import {
 } from '../../ui';
 import { ServiceCall, ServiceCallUpdateData } from '../../../../shared/types/ipc';
 
+// Helper function to format Date for datetime-local input
+const formatDateForInput = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
 interface EditServiceCallDialogProps {
   call: ServiceCall | null;
   open: boolean;
@@ -31,6 +41,7 @@ export function EditServiceCallDialog({ call, open, onOpenChange, onSave }: Edit
     problemDesc: '',
     callType: 'Landlord',
     landlordName: '',
+    modelNumber: '',
     status: 'New',
     scheduledAt: undefined,
   });
@@ -45,6 +56,7 @@ export function EditServiceCallDialog({ call, open, onOpenChange, onSave }: Edit
         problemDesc: call.problemDesc,
         callType: call.callType,
         landlordName: call.landlordName || '',
+        modelNumber: call.modelNumber || '',
         status: call.status,
         scheduledAt: call.scheduledAt ? new Date(call.scheduledAt) : undefined,
       });
@@ -69,10 +81,27 @@ export function EditServiceCallDialog({ call, open, onOpenChange, onSave }: Edit
   };
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
+    const value = e.target.value; // "2025-07-02T14:30"
+    if (!value) {
+      setFormData(prev => ({
+        ...prev,
+        scheduledAt: undefined,
+      }));
+      return;
+    }
+
+    // Parse datetime-local string manually to avoid timezone issues
+    // Format: "YYYY-MM-DDTHH:mm"
+    const [datePart, timePart] = value.split('T');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hours, minutes] = timePart.split(':').map(Number);
+    
+    // Create date in local timezone
+    const localDate = new Date(year, month - 1, day, hours, minutes);
+    
     setFormData(prev => ({
       ...prev,
-      scheduledAt: value ? new Date(value) : undefined,
+      scheduledAt: localDate,
     }));
   };
 
@@ -178,6 +207,7 @@ export function EditServiceCallDialog({ call, open, onOpenChange, onSave }: Edit
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="New">New</SelectItem>
+                  <SelectItem value="Scheduled">Scheduled</SelectItem>
                   <SelectItem value="InProgress">In Progress</SelectItem>
                   <SelectItem value="OnHold">On Hold</SelectItem>
                   <SelectItem value="Completed">Completed</SelectItem>
@@ -202,6 +232,23 @@ export function EditServiceCallDialog({ call, open, onOpenChange, onSave }: Edit
               />
             </div>
 
+            {/* Model Number */}
+            <div>
+              <label className="block text-sm font-medium mb-1" htmlFor="modelNumber">
+                Model Number
+                <span className="text-muted-foreground text-xs ml-1">(optional)</span>
+              </label>
+              <input
+                type="text"
+                id="modelNumber"
+                name="modelNumber"
+                value={formData.modelNumber || ''}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter appliance model number..."
+              />
+            </div>
+
             {/* Scheduled At */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1" htmlFor="scheduledAt">
@@ -211,11 +258,7 @@ export function EditServiceCallDialog({ call, open, onOpenChange, onSave }: Edit
                 type="datetime-local"
                 id="scheduledAt"
                 name="scheduledAt"
-                value={
-                  formData.scheduledAt 
-                    ? formData.scheduledAt.toISOString().slice(0, 16) 
-                    : ''
-                }
+                value={formData.scheduledAt ? formatDateForInput(formData.scheduledAt) : ''}
                 onChange={handleDateChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />

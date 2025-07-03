@@ -2,8 +2,9 @@ import { ipcMain, dialog, BrowserWindow, app } from 'electron';
 import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import { format } from 'date-fns';
+import { tmpdir } from 'os';
 import { IPC_CHANNELS } from '../../shared/types/ipc';
-import type { PDFExportData, SaveDialogOptions } from '../../shared/types/ipc';
+import type { PDFExportData, SaveDialogOptions, ServiceCall } from '../../shared/types/ipc';
 
 export class PDFService {
   async initialize(): Promise<void> {
@@ -28,6 +29,7 @@ export class PDFService {
   private async exportToPDF(webContents: Electron.WebContents, data: PDFExportData): Promise<string> {
     let printWindow: BrowserWindow | null = null;
     let filePath: string | undefined;
+    let tempFilePath: string | undefined;
     
     try {
       console.log('Starting PDF export process...');
@@ -68,6 +70,8 @@ export class PDFService {
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true,
+          webSecurity: false, // Allow local content
+          allowRunningInsecureContent: true,
         },
       });
 
@@ -81,11 +85,16 @@ export class PDFService {
       }, 30000);
 
       try {
-        // Try data URL approach first (more reliable than temp files)
-        console.log('Using data URL approach...');
-        const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`;
+        // Use temporary file approach for better reliability with complex HTML
+        console.log('Using temporary file approach...');
+        tempFilePath = join(tmpdir(), `daily-sheet-${Date.now()}.html`);
         
-        await printWindow.loadURL(dataUrl);
+        // Write HTML to temporary file
+        await writeFile(tempFilePath, htmlContent, 'utf8');
+        console.log('Temporary HTML file created:', tempFilePath);
+        
+        // Load the temporary file
+        await printWindow.loadFile(tempFilePath);
 
         // Wait for content to load with improved timeout handling
         console.log('Waiting for page to finish loading...');
@@ -93,12 +102,29 @@ export class PDFService {
           const loadTimeout = setTimeout(() => {
             console.error('Page load timeout - will try fallback');
             reject(new Error('Page load timeout'));
-          }, 15000); // 15 second timeout
+          }, 25000); // Increased to 25 seconds
+
+          // Wait for both DOM and all resources to load
+          let domLoaded = false;
+          let resourcesLoaded = false;
+
+          const checkComplete = () => {
+            if (domLoaded && resourcesLoaded) {
+              clearTimeout(loadTimeout);
+              console.log('Page finished loading successfully');
+              resolve(true);
+            }
+          };
 
           printWindow!.webContents.once('did-finish-load', () => {
-            clearTimeout(loadTimeout);
-            console.log('Page finished loading successfully');
-            resolve(true);
+            console.log('DOM finished loading');
+            domLoaded = true;
+            
+            // Give a moment for any remaining resources
+            setTimeout(() => {
+              resourcesLoaded = true;
+              checkComplete();
+            }, 2000);
           });
 
           printWindow!.webContents.once('did-fail-load', (event, errorCode, errorDescription) => {
@@ -131,111 +157,26 @@ export class PDFService {
         console.log('PDF export completed successfully');
         return filePath;
 
-      } catch (error) {
+            } catch (error) {
         clearTimeout(mainTimeout);
-        console.error('Primary approach failed, trying fallback:', error);
-        
-        // Enhanced fallback with better HTML
-        try {
-          if (printWindow && !printWindow.isDestroyed()) {
-            printWindow.close();
-          }
-          
-          // Create new window for fallback
-          printWindow = new BrowserWindow({
-            width: 800,
-            height: 600,
-            show: false,
-            webPreferences: {
-              nodeIntegration: false,
-              contextIsolation: true,
-            },
-          });
-          
-          // Use the same high-quality HTML but with simpler loading
-          console.log('Trying enhanced fallback approach...');
-          const simplifiedDataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`;
-          
-          await printWindow.loadURL(simplifiedDataUrl);
-          
-          // Shorter wait for fallback
-          await new Promise((resolve) => {
-            setTimeout(resolve, 3000); // 3 seconds should be enough
-          });
-          
-          console.log('Fallback approach loaded, generating PDF...');
-          
-          // Generate PDF with basic options for fallback
-          const pdfBuffer = await printWindow.webContents.printToPDF({
-            pageSize: 'A4',
-            printBackground: false, // Disable background for better compatibility
-          });
-          
-          console.log('Fallback PDF generated successfully, size:', pdfBuffer.length, 'bytes');
-          
-          // Write PDF to file
-          if (!filePath) {
-            throw new Error('No file path available for saving');
-          }
-          console.log('Writing fallback PDF to file...');
-          await writeFile(filePath, pdfBuffer);
-          
-          console.log('Fallback PDF export completed successfully');
-          return filePath;
-          
-        } catch (fallbackError) {
-          console.error('Enhanced fallback also failed, trying minimal approach:', fallbackError);
-          
-          // Last resort: minimal HTML approach
-          try {
-            if (printWindow && !printWindow.isDestroyed()) {
-              printWindow.close();
-            }
-            
-            printWindow = new BrowserWindow({
-              width: 800,
-              height: 600,
-              show: false,
-              webPreferences: {
-                nodeIntegration: false,
-                contextIsolation: true,
-              },
-            });
-            
-                         // Use minimal HTML as absolute last resort
-             const minimalHtml = this.generateMinimalHTML(data);
-             const minimalDataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(minimalHtml)}`;
-             
-             console.log('Trying minimal HTML approach as last resort...');
-            await printWindow.loadURL(minimalDataUrl);
-            
-            await new Promise((resolve) => {
-              setTimeout(resolve, 2000);
-            });
-            
-            const pdfBuffer = await printWindow.webContents.printToPDF({
-              pageSize: 'A4',
-            });
-            
-            if (!filePath) {
-              throw new Error('No file path available for saving');
-            }
-            await writeFile(filePath, pdfBuffer);
-            
-            console.log('Minimal fallback PDF export completed');
-            return filePath;
-            
-          } catch (finalError) {
-            console.error('All approaches failed:', finalError);
-            throw new Error(`PDF generation failed with all approaches. Final error: ${finalError instanceof Error ? finalError.message : String(finalError)}`);
-          }
-        }
+        console.error('PDF generation failed:', error);
+        throw error;
       }
     } finally {
       // Always close the print window
       if (printWindow && !printWindow.isDestroyed()) {
         console.log('Closing print window...');
         printWindow.close();
+      }
+      
+      // Clean up temporary file if it exists
+      if (tempFilePath) {
+        try {
+          await unlink(tempFilePath);
+          console.log('Temporary file cleaned up in finally block');
+        } catch (cleanupError) {
+          console.warn('Failed to clean up temporary file in finally block:', cleanupError);
+        }
       }
     }
   }
@@ -258,6 +199,7 @@ export class PDFService {
 
     // Escape HTML to prevent issues
     const escapeHtml = (text: string) => {
+      if (!text) return '';
       return text
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -266,28 +208,157 @@ export class PDFService {
         .replace(/'/g, '&#039;');
     };
 
-    const callsHtml = calls.length === 0 
-      ? '<div style="text-align: center; padding: 40px;"><p>No service calls scheduled for this date.</p></div>'
-      : calls.map((call, index) => `
-          <div style="border: 1px solid #ccc; margin-bottom: 20px; padding: 15px; page-break-inside: avoid;">
-            <div style="font-size: 14pt; font-weight: bold; margin-bottom: 10px;">
-              #${index + 1} - ${escapeHtml(call.customerName)}
+    // Helper function to generate AI analysis section
+    const generateAIAnalysisSection = (call: any) => {
+      const hasAIAnalysis = call.aiAnalysisResult || call.likelyProblem || (call.suggestedParts && call.suggestedParts.length > 0);
+      
+      if (!hasAIAnalysis) return '';
+
+      let aiSection = `
+        <div style="border-top: 1px solid #ccc; margin-top: 15px; padding-top: 15px; margin-bottom: 15px;">
+          <div style="font-weight: bold; margin-bottom: 10px;">🤖 AI Parts Analysis</div>
+      `;
+
+      // Likely Problem
+      if (call.likelyProblem) {
+        aiSection += `
+          <div style="margin-bottom: 10px;">
+            <div style="font-weight: bold; font-size: 10pt; margin-bottom: 3px;">Likely Problem:</div>
+            <div style="background: #f0f8ff; padding: 8px; border-radius: 3px; font-size: 10pt;">${escapeHtml(call.likelyProblem)}</div>
+          </div>
+        `;
+      }
+
+      // Appliance Details
+      if (call.aiAnalysisResult) {
+        const result = call.aiAnalysisResult;
+        const hasDetails = result.appliance || result.brand || result.urgency || result.estimatedDuration;
+        
+        if (hasDetails) {
+          aiSection += `
+            <div style="margin-bottom: 10px;">
+              <div style="font-weight: bold; font-size: 10pt; margin-bottom: 3px;">Appliance Details:</div>
+              <div style="background: #f5f5f5; padding: 8px; border-radius: 3px; font-size: 10pt;">
+          `;
+          
+          if (result.appliance) {
+            aiSection += `<strong>Type:</strong> ${escapeHtml(result.appliance)}<br/>`;
+          }
+          if (result.brand) {
+            aiSection += `<strong>Brand:</strong> ${escapeHtml(result.brand)}<br/>`;
+          }
+          if (result.urgency) {
+            aiSection += `<strong>Urgency:</strong> ${escapeHtml(result.urgency)}<br/>`;
+          }
+          if (result.estimatedDuration) {
+            aiSection += `<strong>Est. Duration:</strong> ${escapeHtml(result.estimatedDuration)}`;
+          }
+          
+          aiSection += `
+              </div>
             </div>
-            <div style="margin-bottom: 5px;"><strong>Phone:</strong> ${escapeHtml(call.phone)}</div>
-            <div style="margin-bottom: 5px;"><strong>Address:</strong> ${escapeHtml(call.address)}</div>
-            ${call.landlordName ? `<div style="margin-bottom: 5px;"><strong>Landlord:</strong> ${escapeHtml(call.landlordName)}</div>` : ''}
-            <div style="margin-bottom: 5px;"><strong>Type:</strong> ${escapeHtml(call.callType)} | <strong>Status:</strong> ${escapeHtml(call.status)}</div>
-            <div style="margin-bottom: 15px;"><strong>Problem:</strong> ${escapeHtml(call.problemDesc)}</div>
-            
-            <div style="border-top: 1px solid #ccc; margin-top: 15px; padding-top: 15px;">
-              <div><strong>Work Performed:</strong></div>
-              <div style="border: 1px solid #999; height: 50px; margin: 5px 0;"></div>
-              <div><strong>Parts Used:</strong></div>
-              <div style="border: 1px solid #999; height: 40px; margin: 5px 0;"></div>
-              <div><strong>Start Time:</strong> _____________ <strong>End Time:</strong> _____________</div>
+          `;
+        }
+      }
+
+      // Recommended Parts
+      const hasRecommendedParts = (call.aiAnalysisResult && call.aiAnalysisResult.recommendedParts && call.aiAnalysisResult.recommendedParts.length > 0) || 
+                                  (call.suggestedParts && call.suggestedParts.length > 0);
+      
+      if (hasRecommendedParts) {
+        aiSection += `
+          <div style="margin-bottom: 10px;">
+            <div style="font-weight: bold; font-size: 10pt; margin-bottom: 3px;">Recommended Parts:</div>
+            <div style="background: #f0fff0; padding: 8px; border-radius: 3px; font-size: 10pt;">
+        `;
+        
+        if (call.aiAnalysisResult && call.aiAnalysisResult.recommendedParts && call.aiAnalysisResult.recommendedParts.length > 0) {
+          for (const part of call.aiAnalysisResult.recommendedParts) {
+            aiSection += `
+              <strong>${escapeHtml(part.name || '')}</strong> (${escapeHtml(part.partNumber || '')})<br/>
+              <span style="font-size: 9pt; color: #666;">${escapeHtml(part.category || '')} • Priority: ${escapeHtml(part.priority || '')} • $${part.price || '0'}</span><br/>
+            `;
+            if (part.description) {
+              aiSection += `<span style="font-size: 9pt; color: #666;">${escapeHtml(part.description)}</span><br/>`;
+            }
+          }
+        } else if (call.suggestedParts && call.suggestedParts.length > 0) {
+          for (const part of call.suggestedParts) {
+            aiSection += `• ${escapeHtml(part)}<br/>`;
+          }
+        }
+        
+        aiSection += `
             </div>
           </div>
-        `).join('');
+        `;
+      }
+
+      // Analysis Notes
+      if (call.aiAnalysisResult && call.aiAnalysisResult.analysisNotes && call.aiAnalysisResult.analysisNotes.length > 0) {
+        aiSection += `
+          <div style="margin-bottom: 10px;">
+            <div style="font-weight: bold; font-size: 10pt; margin-bottom: 3px;">Analysis Notes:</div>
+            <div style="background: #fff9e6; padding: 8px; border-radius: 3px; font-size: 10pt;">
+        `;
+        
+        for (const note of call.aiAnalysisResult.analysisNotes) {
+          aiSection += `• ${escapeHtml(note)}<br/>`;
+        }
+        
+        aiSection += `
+            </div>
+          </div>
+        `;
+      }
+
+      // Confidence Score
+      if (call.aiAnalysisResult && call.aiAnalysisResult.confidence) {
+        const confidence = Math.round(call.aiAnalysisResult.confidence * 100);
+        aiSection += `
+          <div style="font-size: 9pt; color: #666; margin-top: 5px;">
+            Analysis Confidence: ${confidence}%
+          </div>
+        `;
+      }
+
+      aiSection += `
+        </div>
+      `;
+
+      return aiSection;
+    };
+
+    const callsHtml = calls.length === 0 
+      ? '<div style="text-align: center; padding: 40px;"><p>No service calls scheduled for this date.</p></div>'
+      : calls.map((call, index) => {
+          const scheduledTime = call.scheduledAt ? format(new Date(call.scheduledAt), 'h:mm a') : 'Not scheduled';
+          const createdTime = format(new Date(call.createdAt), 'MMM d, h:mm a');
+          
+          return `
+            <div style="border: 1px solid #ccc; margin-bottom: 20px; padding: 15px; page-break-inside: avoid;">
+              <div style="font-size: 14pt; font-weight: bold; margin-bottom: 10px;">
+                #${index + 1} - ${escapeHtml(call.customerName)}
+              </div>
+              <div style="margin-bottom: 5px;"><strong>Phone:</strong> ${escapeHtml(call.phone)}</div>
+              <div style="margin-bottom: 5px;"><strong>Address:</strong> ${escapeHtml(call.address)}</div>
+              ${call.landlordName ? `<div style="margin-bottom: 5px;"><strong>Landlord:</strong> ${escapeHtml(call.landlordName)}</div>` : ''}
+              <div style="margin-bottom: 5px;"><strong>Type:</strong> ${escapeHtml(call.callType)} | <strong>Status:</strong> ${escapeHtml(call.status)}</div>
+              <div style="margin-bottom: 5px;"><strong>Scheduled:</strong> ${scheduledTime} | <strong>Created:</strong> ${createdTime}</div>
+              <div style="margin-bottom: 15px;"><strong>Problem:</strong> ${escapeHtml(call.problemDesc)}</div>
+              
+              ${generateAIAnalysisSection(call)}
+              
+              <div style="border-top: 1px solid #ccc; margin-top: 15px; padding-top: 15px;">
+                <div><strong>Work Performed:</strong></div>
+                <div style="border: 1px solid #999; height: 50px; margin: 5px 0;"></div>
+                <div><strong>Parts Used:</strong></div>
+                <div style="border: 1px solid #999; height: 40px; margin: 5px 0;"></div>
+                <div><strong>Start Time:</strong> _____________ <strong>End Time:</strong> _____________</div>
+              </div>
+            </div>
+          `;
+        }).join('');
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -296,18 +367,31 @@ export class PDFService {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(title)}</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { 
+      margin: 0; 
+      padding: 0; 
+      box-sizing: border-box; 
+    }
     body { 
-      font-family: Arial, sans-serif; 
+      font-family: Arial, Helvetica, sans-serif; 
       font-size: 12pt; 
       line-height: 1.4;
       margin: 20px; 
       background: white;
       color: black;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     @media print {
       body { margin: 0; }
-      @page { margin: 1in; }
+      @page { 
+        margin: 1in; 
+        size: A4;
+      }
+    }
+    @page {
+      margin: 1in;
+      size: A4;
     }
   </style>
 </head>
@@ -340,6 +424,27 @@ export class PDFService {
         ${call.landlordName ? `<p style="margin:5px 0;"><strong>Landlord:</strong> ${call.landlordName}</p>` : ''}
         <p style="margin:5px 0;"><strong>Type:</strong> ${call.callType} | <strong>Status:</strong> ${call.status}</p>
         <p style="margin:10px 0;"><strong>Problem:</strong> ${call.problemDesc}</p>
+        
+        ${(call.aiAnalysisResult || call.likelyProblem || call.suggestedParts?.length) ? `
+        <div style="margin:15px 0;padding:10px;border:1px solid #ddd;background:#f9f9f9;">
+          <p style="margin:0 0 10px 0;font-weight:bold;">🤖 AI Parts Analysis</p>
+          
+          ${call.likelyProblem ? `
+          <p style="margin:5px 0;"><strong>Likely Problem:</strong> ${call.likelyProblem}</p>` : ''}
+          
+          ${call.aiAnalysisResult && (call.aiAnalysisResult.appliance || call.aiAnalysisResult.brand || call.aiAnalysisResult.urgency) ? `
+          <p style="margin:5px 0;"><strong>Appliance:</strong> ${call.aiAnalysisResult.appliance || 'N/A'} | <strong>Brand:</strong> ${call.aiAnalysisResult.brand || 'N/A'} | <strong>Urgency:</strong> ${call.aiAnalysisResult.urgency || 'N/A'}</p>` : ''}
+          
+          ${(call.aiAnalysisResult?.recommendedParts?.length || call.suggestedParts?.length) ? `
+          <p style="margin:5px 0;"><strong>Recommended Parts:</strong></p>
+          <div style="margin:5px 0;padding:5px;background:#fff;border-radius:3px;">
+            ${call.aiAnalysisResult?.recommendedParts?.length ? 
+              call.aiAnalysisResult.recommendedParts.map(part => `• ${part.name} (${part.partNumber}) - $${part.price}`).join('<br/>') :
+              call.suggestedParts?.map(part => `• ${part}`).join('<br/>')
+            }
+          </div>` : ''}
+        </div>` : ''}
+        
         <hr style="margin:15px 0;"/>
         <div style="margin-top:15px;">
           <p style="margin:5px 0;"><strong>Work Performed:</strong></p>

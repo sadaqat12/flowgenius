@@ -23,7 +23,7 @@ export async function addSampleData(): Promise<void> {
         address: '123 Main St, Downtown, NY 10001',
         problemDesc: 'Refrigerator not cooling properly. Temperature seems inconsistent.',
         callType: 'Warranty' as const,
-        scheduledAt: new Date('2024-01-15T10:00:00'),
+        scheduledAt: new Date('2025-07-02T10:00:00'),
       },
       {
         customerName: 'Mary Johnson',
@@ -31,7 +31,7 @@ export async function addSampleData(): Promise<void> {
         address: '456 Oak Ave, Midtown, NY 10002',
         problemDesc: 'Washing machine making loud noise during spin cycle.',
         callType: 'Landlord' as const,
-        scheduledAt: new Date('2024-01-15T14:30:00'),
+        scheduledAt: new Date('2025-07-02T14:30:00'),
       },
       {
         customerName: 'Bob Wilson',
@@ -39,6 +39,7 @@ export async function addSampleData(): Promise<void> {
         address: '789 Pine St, Uptown, NY 10003',
         problemDesc: 'Dishwasher not draining properly. Water pools at bottom.',
         callType: 'Extra' as const,
+        scheduledAt: new Date('2025-07-03T09:00:00'),
       },
       {
         customerName: 'Alice Brown',
@@ -46,7 +47,7 @@ export async function addSampleData(): Promise<void> {
         address: '321 Elm Dr, Eastside, NY 10004',
         problemDesc: 'Oven temperature not accurate. Overcooking food.',
         callType: 'Warranty' as const,
-        scheduledAt: new Date('2024-01-16T09:00:00'),
+        scheduledAt: new Date('2025-07-01T09:00:00'),
       },
       {
         customerName: 'Charlie Davis',
@@ -54,6 +55,7 @@ export async function addSampleData(): Promise<void> {
         address: '654 Maple Ln, Westside, NY 10005',
         problemDesc: 'Microwave turntable not rotating. Heating unevenly.',
         callType: 'Landlord' as const,
+        scheduledAt: new Date('2025-07-04T15:00:00'),
       },
     ];
 

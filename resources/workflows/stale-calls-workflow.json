@@ -1,0 +1,176 @@
+{
+  "name": "Stale Calls Monitoring",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "check-stale-calls",
+        "options": {}
+      },
+      "id": "webhook-stale-calls",
+      "name": "Stale Calls Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "stale-calls-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process incoming stale calls data\nconst { staleCalls } = $json;\n\nif (!staleCalls || staleCalls.length === 0) {\n  return {\n    message: 'No stale calls to process',\n    count: 0,\n    staleCalls: []\n  };\n}\n\nconsole.log(`Processing ${staleCalls.length} stale calls`);\n\n// Process each stale call\nconst processedCalls = staleCalls.map(call => {\n  const urgencyLevel = call.hoursSinceUpdated > 48 ? 'high' : \n                       call.hoursSinceUpdated > 24 ? 'medium' : 'low';\n  \n  return {\n    ...call,\n    urgencyLevel,\n    needsAction: true,\n    processedAt: new Date().toISOString()\n  };\n});\n\n// Sort by urgency and hours since updated\nprocessedCalls.sort((a, b) => {\n  if (a.urgencyLevel !== b.urgencyLevel) {\n    const urgencyOrder = { high: 3, medium: 2, low: 1 };\n    return urgencyOrder[b.urgencyLevel] - urgencyOrder[a.urgencyLevel];\n  }\n  return b.hoursSinceUpdated - a.hoursSinceUpdated;\n});\n\nreturn {\n  message: `Found ${staleCalls.length} stale calls requiring attention`,\n  count: staleCalls.length,\n  staleCalls: processedCalls,\n  summary: {\n    high: processedCalls.filter(c => c.urgencyLevel === 'high').length,\n    medium: processedCalls.filter(c => c.urgencyLevel === 'medium').length,\n    low: processedCalls.filter(c => c.urgencyLevel === 'low').length\n  }\n};"
+      },
+      "id": "process-stale-calls",
+      "name": "Process Stale Calls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $json.count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-stale-calls",
+      "name": "Has Stale Calls?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Create notification for high priority stale calls\nconst { staleCalls, summary } = $json;\n\n// Focus on high priority calls for immediate notification\nconst highPriorityCalls = staleCalls.filter(call => call.urgencyLevel === 'high');\nconst mediumPriorityCalls = staleCalls.filter(call => call.urgencyLevel === 'medium');\n\nlet notificationMessage = `🚨 STALE CALLS ALERT\\n\\n`;\n\nif (highPriorityCalls.length > 0) {\n  notificationMessage += `🔴 HIGH PRIORITY (${highPriorityCalls.length}):`;  \n  highPriorityCalls.forEach(call => {\n    notificationMessage += `\\n• ${call.customerName} - ${call.status} (${Math.round(call.hoursSinceUpdated)}h)\\n  ${call.address}`;\n  });\n}\n\nif (mediumPriorityCalls.length > 0) {\n  notificationMessage += `\\n\\n🟡 MEDIUM PRIORITY (${mediumPriorityCalls.length}):`;  \n  mediumPriorityCalls.slice(0, 3).forEach(call => {\n    notificationMessage += `\\n• ${call.customerName} - ${call.status} (${Math.round(call.hoursSinceUpdated)}h)`;\n  });\n  \n  if (mediumPriorityCalls.length > 3) {\n    notificationMessage += `\\n... and ${mediumPriorityCalls.length - 3} more`;\n  }\n}\n\nnotificationMessage += `\\n\\nTotal: ${staleCalls.length} stale calls need attention`;\n\nreturn {\n  notificationMessage,\n  totalCalls: staleCalls.length,\n  highPriority: highPriorityCalls.length,\n  mediumPriority: mediumPriorityCalls.length,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "create-notification",
+      "name": "Create Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log stale calls for monitoring\nconst { staleCalls, summary } = $json;\n\nconsole.log('=== STALE CALLS MONITORING ===');\nconsole.log(`Timestamp: ${new Date().toISOString()}`);\nconsole.log(`Total stale calls: ${staleCalls.length}`);\nconsole.log(`High priority: ${summary.high}`);\nconsole.log(`Medium priority: ${summary.medium}`);\nconsole.log(`Low priority: ${summary.low}`);\n\nstaleCalls.forEach(call => {\n  console.log(`${call.urgencyLevel.toUpperCase()}: ${call.customerName} (${call.status}) - ${Math.round(call.hoursSinceUpdated)}h since update`);\n});\n\nconsole.log('=== END STALE CALLS ===');\n\nreturn {\n  logged: true,\n  timestamp: new Date().toISOString(),\n  summary\n};"
+      },
+      "id": "log-monitoring",
+      "name": "Log Monitoring",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"success\": true,\n  \"message\": \"Stale calls processed successfully\",\n  \"count\": $json.count,\n  \"summary\": $json.summary,\n  \"processedAt\": new Date().toISOString()\n} }}"
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"success\": true,\n  \"message\": \"No stale calls found\",\n  \"count\": 0,\n  \"processedAt\": new Date().toISOString()\n} }}"
+      },
+      "id": "respond-no-calls",
+      "name": "Respond No Calls",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 500]
+    }
+  ],
+  "connections": {
+    "Stale Calls Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Stale Calls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Stale Calls": {
+      "main": [
+        [
+          {
+            "node": "Has Stale Calls?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Stale Calls?": {
+      "main": [
+        [
+          {
+            "node": "Create Notification",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Monitoring",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond No Calls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Notification": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Monitoring": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

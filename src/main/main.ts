@@ -2,15 +2,28 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import path from 'path';
 import { callService } from './services/call-service';
 import { pdfService } from './services/pdf-service';
+import { workflowService } from './services/workflow-service';
 import { addSampleData } from './utils/sample-data';
 
 const isDev = process.env.NODE_ENV === 'development';
 
 let mainWindow: BrowserWindow | null = null;
+
+// Handle creating/removing shortcuts on Windows when installing/uninstalling.
+if (require('electron-squirrel-startup')) {
+  app.quit();
+}
+
+// Function to send messages to the renderer process
+export function sendToRenderer(channel: string, ...args: any[]) {
+  if (mainWindow) {
+    mainWindow.webContents.send(channel, ...args);
+  }
+}
 
 function createWindow(): void {
   // Create the browser window
@@ -54,6 +67,7 @@ app.whenReady().then(async () => {
   try {
     await callService.initialize();
     await pdfService.initialize();
+    await workflowService.initialize();
     console.log('Services initialized successfully');
     
     // Add sample data in development mode
@@ -103,6 +117,7 @@ app.on('before-quit', async () => {
   try {
     await callService.shutdown();
     await pdfService.shutdown();
+    await workflowService.shutdown();
     console.log('Services shut down successfully');
   } catch (error) {
     console.error('Error shutting down services:', error);

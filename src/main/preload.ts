@@ -20,6 +20,7 @@ const electronAPI = {
     delete: (id: string) => ipcRenderer.invoke('service-calls:delete', id),
     getStats: () => ipcRenderer.invoke('service-calls:get-stats'),
     getTodaysCalls: () => ipcRenderer.invoke('service-calls:get-todays-calls'),
+    fixStatuses: () => ipcRenderer.invoke('service-calls:fix-statuses'),
   },
 
   // File operations
@@ -42,11 +43,31 @@ const electronAPI = {
       ipcRenderer.invoke('database:restore', filePath),
   },
 
+  // Parts Analysis (ChatGPT via n8n)
+  callService: {
+    analyzeParts: (modelNumber: string, problemDescription: string) =>
+      ipcRenderer.invoke('parts:analyze-chatgpt', modelNumber, problemDescription),
+  },
+
   // Workflow operations (to be implemented later)
   workflows: {
     trigger: (name: string, data: any) =>
       ipcRenderer.invoke('workflows:trigger', name, data),
     getStatus: (id: string) => ipcRenderer.invoke('workflows:get-status', id),
+    checkStaleCalls: () => ipcRenderer.invoke('workflows:check-stale-calls'),
+    // N8n integration
+    n8nStatus: () => ipcRenderer.invoke('workflows:n8n-status'),
+    n8nWorkflows: () => ipcRenderer.invoke('workflows:n8n-workflows'),
+    openN8nEditor: () => ipcRenderer.invoke('workflows:open-n8n-editor'),
+  },
+
+  // Event listeners from main process
+  on: (channel: string, callback: (...args: any[]) => void) => {
+    ipcRenderer.on(channel, (_, ...args) => callback(...args));
+    // Return a cleanup function
+    return () => {
+      ipcRenderer.removeAllListeners(channel);
+    };
   },
 };
 

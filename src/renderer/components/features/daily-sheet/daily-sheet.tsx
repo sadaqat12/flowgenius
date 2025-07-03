@@ -26,13 +26,13 @@ export default function DailySheet({ selectedDate = new Date(), onDateChange }: 
     endOfDay.setHours(23, 59, 59, 999);
 
     const filtered = serviceCalls.filter(call => {
-      // Simple logic: Show calls that have ANY connection to the selected date
       let includeCall = false;
       
       // Check if scheduled for this date
       if (call.scheduledAt) {
         const scheduledDate = new Date(call.scheduledAt);
         const isScheduledToday = scheduledDate >= startOfDay && scheduledDate <= endOfDay;
+        
         if (isScheduledToday) {
           includeCall = true;
         }
@@ -180,7 +180,7 @@ export default function DailySheet({ selectedDate = new Date(), onDateChange }: 
           </div>
         </div>
 
-        {/* Debug information - remove this after fixing */}
+        {/* Debug information - remove this after fixing
         {process.env.NODE_ENV === 'development' && (
           <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm">
             <h4 className="font-medium mb-2">Debug Info:</h4>
@@ -202,7 +202,7 @@ export default function DailySheet({ selectedDate = new Date(), onDateChange }: 
               </div>
             )}
           </div>
-        )}
+        )} */}
 
         {/* Service calls list */}
         {filteredCalls.length === 0 ? (
@@ -255,37 +255,136 @@ export default function DailySheet({ selectedDate = new Date(), onDateChange }: 
                   </div>
                 </div>
 
-                <div className="mb-4">
+                                <div className="mb-4">
                   <h4 className="font-medium mb-2">Problem Description:</h4>
                   <p className="text-sm bg-muted p-3 rounded-md print:bg-gray-50">
                     {call.problemDesc}
                   </p>
                 </div>
 
+                {/* AI Parts Analysis Section */}
+                {(call.aiAnalysisResult || call.likelyProblem || call.suggestedParts?.length) && (
+                  <div className="mb-4 border-t pt-4 print:border-gray-300">
+                    <h4 className="font-medium mb-2 flex items-center gap-2">
+                      <span className="text-blue-600">🤖</span>
+                      AI Parts Analysis
+                    </h4>
+                    
+                    {/* Likely Problem
+                    {call.likelyProblem && (
+                      <div className="mb-3">
+                        <div className="text-sm font-medium text-muted-foreground mb-1">Likely Problem:</div>
+                        <p className="text-sm bg-blue-50 p-2 rounded-md print:bg-gray-50">
+                          {call.likelyProblem}
+                        </p>
+                      </div>
+                    )} */}
+
+                    {/* Appliance Details */}
+                    {call.aiAnalysisResult && (
+                      <div className="mb-3">
+                        <div className="text-sm font-medium text-muted-foreground mb-1">Appliance Details:</div>
+                        <div className="text-sm bg-gray-50 p-2 rounded-md grid grid-cols-2 gap-2">
+                          {call.aiAnalysisResult.appliance && (
+                            <div><strong>Type:</strong> {call.aiAnalysisResult.appliance}</div>
+                          )}
+                          {call.aiAnalysisResult.brand && (
+                            <div><strong>Brand:</strong> {call.aiAnalysisResult.brand}</div>
+                          )}
+                          {call.aiAnalysisResult.urgency && (
+                            <div><strong>Urgency:</strong> {call.aiAnalysisResult.urgency}</div>
+                          )}
+                          {call.aiAnalysisResult.estimatedDuration && (
+                            <div><strong>Est. Duration:</strong> {call.aiAnalysisResult.estimatedDuration}</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Recommended Parts */}
+                    {(call.aiAnalysisResult?.recommendedParts?.length || call.suggestedParts?.length) && (
+                      <div className="mb-3">
+                        <div className="text-sm font-medium text-muted-foreground mb-1">Recommended Parts:</div>
+                        <div className="text-sm bg-green-50 p-2 rounded-md print:bg-gray-50">
+                          {call.aiAnalysisResult?.recommendedParts?.length ? (
+                            <ul className="space-y-1">
+                              {call.aiAnalysisResult.recommendedParts.map((part, idx) => (
+                                <li key={idx} className="flex justify-between items-start">
+                                  <div className="flex-1">
+                                    <strong>{part.name}</strong> ({part.partNumber})
+                                    <div className="text-xs text-muted-foreground">
+                                      {part.category} • Priority: {part.priority} • ${part.price}
+                                    </div>
+                                    {part.description && (
+                                      <div className="text-xs text-muted-foreground mt-1">
+                                        {part.description}
+                                      </div>
+                                    )}
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <ul className="space-y-1">
+                              {call.suggestedParts?.map((part, idx) => (
+                                <li key={idx} className="flex items-center gap-2">
+                                  <span className="text-green-600">•</span>
+                                  {part}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Analysis Notes */}
+                    {call.aiAnalysisResult?.analysisNotes?.length && (
+                      <div className="mb-3">
+                        <div className="text-sm font-medium text-muted-foreground mb-1">Analysis Notes:</div>
+                        <div className="text-sm bg-yellow-50 p-2 rounded-md print:bg-gray-50">
+                          <ul className="list-disc list-inside space-y-1">
+                            {call.aiAnalysisResult.analysisNotes.map((note, idx) => (
+                              <li key={idx}>{note}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    )}
+
+                                          {/* Confidence Score
+                      {call.aiAnalysisResult?.confidence && (
+                        <div className="text-xs text-muted-foreground">
+                          Analysis Confidence: {Math.round(call.aiAnalysisResult.confidence * 100)}%
+                        </div>
+                      )} */}
+                  </div>
+                )}
+
                 {/* Tech notes section for filling out */}
-                                 <div className="border-t pt-4 print:border-gray-300">
-                   <h4 className="font-medium mb-2">Technician Notes:</h4>
-                   <div className="space-y-3">
-                     <div>
-                       <div className="text-sm font-medium text-muted-foreground mb-1">Work Performed:</div>
-                       <div className="mt-1 h-16 border rounded-md print:border-gray-300"></div>
-                     </div>
-                     <div>
-                       <div className="text-sm font-medium text-muted-foreground mb-1">Parts Used:</div>
-                       <div className="mt-1 h-12 border rounded-md print:border-gray-300"></div>
-                     </div>
-                     <div className="grid grid-cols-2 gap-4">
-                       <div>
-                         <div className="text-sm font-medium text-muted-foreground mb-1">Time Started:</div>
-                         <div className="mt-1 h-8 border rounded-md print:border-gray-300"></div>
-                       </div>
-                       <div>
-                         <div className="text-sm font-medium text-muted-foreground mb-1">Time Completed:</div>
-                         <div className="mt-1 h-8 border rounded-md print:border-gray-300"></div>
-                       </div>
-                     </div>
-                   </div>
-                 </div>
+                <div className="border-t pt-4 print:border-gray-300">
+                  <h4 className="font-medium mb-2">Technician Notes:</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="text-sm font-medium text-muted-foreground mb-1">Work Performed:</div>
+                      <div className="mt-1 h-16 border rounded-md print:border-gray-300"></div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-muted-foreground mb-1">Parts Used:</div>
+                      <div className="mt-1 h-12 border rounded-md print:border-gray-300"></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-sm font-medium text-muted-foreground mb-1">Time Started:</div>
+                        <div className="mt-1 h-8 border rounded-md print:border-gray-300"></div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-muted-foreground mb-1">Time Completed:</div>
+                        <div className="mt-1 h-8 border rounded-md print:border-gray-300"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             ))}
           </div>

@@ -1,0 +1,67 @@
+{
+  "name": "Stale Calls Monitoring",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "check-stale-calls",
+        "options": {}
+      },
+      "id": "webhook-node",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const staleCalls = $json.staleCalls || [];\n\nif (staleCalls.length === 0) {\n  return {\n    success: true,\n    message: 'No stale calls found',\n    count: 0\n  };\n}\n\nconsole.log(`Processing ${staleCalls.length} stale calls`);\n\nreturn {\n  success: true,\n  message: `Found ${staleCalls.length} stale calls`,\n  count: staleCalls.length,\n  staleCalls: staleCalls\n};"
+      },
+      "id": "process-node",
+      "name": "Process Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "respond-node",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Data": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": []
+} 

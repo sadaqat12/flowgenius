@@ -9,6 +9,7 @@ export function useServiceCalls() {
   const [stats, setStats] = useState<ServiceCallStats>({
     total: 0,
     new: 0,
+    scheduled: 0,
     inProgress: 0,
     onHold: 0,
     completed: 0,

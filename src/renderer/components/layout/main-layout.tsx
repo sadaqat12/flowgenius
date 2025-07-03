@@ -1,5 +1,8 @@
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, Phone, Plus, FileText, Settings } from 'lucide-react';
+import { useElectronAPI } from '../../hooks/use-electron-api';
+import { ServiceCall } from '../../../shared/types/ipc';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -7,7 +10,7 @@ interface MainLayoutProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
-  { name: 'Service Calls', href: '/calls', icon: Phone },
+  { name: 'Service Calls', href: '/calls', icon: Phone, showStaleCallsBadge: true },
   { name: 'New Call', href: '/calls/new', icon: Plus },
   { name: 'Daily Sheet', href: '/daily-sheet', icon: FileText },
   { name: 'Settings', href: '/settings', icon: Settings },
@@ -15,6 +18,29 @@ const navigation = [
 
 function MainLayout({ children }: MainLayoutProps) {
   const location = useLocation();
+  const { electronAPI } = useElectronAPI();
+  const [staleCalls, setStaleCalls] = useState<ServiceCall[]>([]);
+
+  // Check for stale calls periodically
+  useEffect(() => {
+    const checkForStaleCalls = async () => {
+      if (!electronAPI) return;
+
+      try {
+        const stale = await electronAPI.workflows.checkStaleCalls();
+        setStaleCalls(stale);
+      } catch (error) {
+        console.error('Error checking stale calls in navigation:', error);
+      }
+    };
+
+    checkForStaleCalls();
+
+    // Check every 10 minutes
+    const interval = setInterval(checkForStaleCalls, 10 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [electronAPI]);
 
   return (
     <div className="flex h-screen bg-background">
@@ -31,6 +57,7 @@ function MainLayout({ children }: MainLayoutProps) {
               {navigation.map(item => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.href;
+                const showBadge = item.showStaleCallsBadge && staleCalls.length > 0;
 
                 return (
                   <Link
@@ -49,7 +76,12 @@ function MainLayout({ children }: MainLayoutProps) {
                           : 'text-muted-foreground'
                       }`}
                     />
-                    {item.name}
+                    <span className="flex-1">{item.name}</span>
+                    {showBadge && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        {staleCalls.length}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

@@ -9,10 +9,44 @@ export class ServiceCallModel {
     this.supabase = supabaseClient;
   }
 
+  // Determine appropriate status based on scheduled time
+  private determineStatus(scheduledAt?: Date, currentStatus?: ServiceCall['status']): ServiceCall['status'] {
+    // If manually set to OnHold or Completed, keep that status
+    if (currentStatus === 'OnHold' || currentStatus === 'Completed') {
+      return currentStatus;
+    }
+
+    // If no scheduled time, it's a new call
+    if (!scheduledAt) {
+      return 'New';
+    }
+
+    const now = new Date();
+    const scheduled = new Date(scheduledAt);
+    
+    // Get today's date boundaries (start and end of day)
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    // If scheduled for today or past due, it should be in progress
+    if (scheduled <= todayEnd) {
+      return 'InProgress';
+    }
+
+    // If scheduled for future, it's scheduled
+    return 'Scheduled';
+  }
+
   // Create a new service call
   async create(data: ServiceCallCreateData): Promise<ServiceCall> {
     const id = uuidv4();
     const now = new Date().toISOString();
+
+    // Determine appropriate status based on scheduled time
+    const status = this.determineStatus(data.scheduledAt);
 
     const serviceCallData = {
       id,
@@ -22,7 +56,8 @@ export class ServiceCallModel {
       problem_desc: data.problemDesc,
       call_type: data.callType,
       landlord_name: data.landlordName || null,
-      status: 'New' as const,
+      model_number: data.modelNumber || null,
+      status,
       scheduled_at: data.scheduledAt?.toISOString() || null,
       created_at: now,
       updated_at: now
@@ -92,6 +127,22 @@ export class ServiceCallModel {
     return (data || []).map(this.mapRowToServiceCall);
   }
 
+  // Get service calls by multiple statuses
+  async getByStatusRange(statuses: ServiceCall['status'][]): Promise<ServiceCall[]> {
+    const { data, error } = await this.supabase
+      .from('service_calls')
+      .select('*')
+      .in('status', statuses)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching service calls by status range:', error);
+      throw new Error(`Failed to fetch service calls by status range: ${error.message}`);
+    }
+
+    return (data || []).map(this.mapRowToServiceCall);
+  }
+
   // Get service calls by date range
   async getByDateRange(startDate: Date, endDate: Date): Promise<ServiceCall[]> {
     const { data, error } = await this.supabase
@@ -122,6 +173,12 @@ export class ServiceCallModel {
 
   // Update service call
   async update(id: string, data: ServiceCallUpdateData): Promise<ServiceCall | null> {
+    // Get current service call to understand current state
+    const currentCall = await this.getById(id);
+    if (!currentCall) {
+      return null;
+    }
+
     const updateData: any = {};
 
     // Build update object
@@ -131,8 +188,22 @@ export class ServiceCallModel {
     if (data.problemDesc !== undefined) updateData.problem_desc = data.problemDesc;
     if (data.callType !== undefined) updateData.call_type = data.callType;
     if (data.landlordName !== undefined) updateData.landlord_name = data.landlordName || null;
-    if (data.status !== undefined) updateData.status = data.status;
+    if (data.modelNumber !== undefined) updateData.model_number = data.modelNumber || null;
     if (data.scheduledAt !== undefined) updateData.scheduled_at = data.scheduledAt?.toISOString() || null;
+    if (data.aiAnalysisResult !== undefined) updateData.ai_analysis_result = data.aiAnalysisResult || null;
+    if (data.likelyProblem !== undefined) updateData.likely_problem = data.likelyProblem || null;
+    if (data.suggestedParts !== undefined) updateData.suggested_parts = data.suggestedParts || null;
+
+    // Smart status logic: If status is explicitly provided, use it. Otherwise, determine based on scheduled time.
+    if (data.status !== undefined) {
+      // Explicit status change
+      updateData.status = data.status;
+    } else if (data.scheduledAt !== undefined) {
+      // Scheduled time changed, determine appropriate status
+      const newScheduledAt = data.scheduledAt;
+      const newStatus = this.determineStatus(newScheduledAt, currentCall.status);
+      updateData.status = newStatus;
+    }
 
     // Always update the updated_at timestamp
     updateData.updated_at = new Date().toISOString();
@@ -229,6 +300,42 @@ export class ServiceCallModel {
     }
   }
 
+  // Fix existing service calls with incorrect statuses (run once to clean up data)
+  async fixIncorrectStatuses(): Promise<{ updated: number; errors: number }> {
+    try {
+      const allCalls = await this.getAll();
+      let updated = 0;
+      let errors = 0;
+
+      for (const call of allCalls) {
+        // Skip completed calls - they should stay completed
+        if (call.status === 'Completed') {
+          continue;
+        }
+
+        const correctStatus = this.determineStatus(call.scheduledAt, call.status);
+        
+        // Only update if status should change
+        if (correctStatus !== call.status) {
+          try {
+            await this.update(call.id, { status: correctStatus });
+            updated++;
+            console.log(`Updated call ${call.id} from ${call.status} to ${correctStatus}`);
+          } catch (error) {
+            console.error(`Failed to update call ${call.id}:`, error);
+            errors++;
+          }
+        }
+      }
+
+      console.log(`Status fix complete: ${updated} updated, ${errors} errors`);
+      return { updated, errors };
+    } catch (error) {
+      console.error('Error fixing incorrect statuses:', error);
+      return { updated: 0, errors: 1 };
+    }
+  }
+
   // Helper method to map database row to ServiceCall object
   private mapRowToServiceCall(row: any): ServiceCall {
     return {
@@ -239,10 +346,14 @@ export class ServiceCallModel {
       problemDesc: row.problem_desc,
       callType: row.call_type,
       landlordName: row.landlord_name || undefined,
+      modelNumber: row.model_number || undefined,
       status: row.status,
       scheduledAt: row.scheduled_at ? new Date(row.scheduled_at) : undefined,
       createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at)
+      updatedAt: new Date(row.updated_at),
+      aiAnalysisResult: row.ai_analysis_result || undefined,
+      likelyProblem: row.likely_problem || undefined,
+      suggestedParts: row.suggested_parts || undefined,
     };
   }
 } 
