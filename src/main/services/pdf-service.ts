@@ -57,9 +57,9 @@ export class PDFService {
 
       console.log('Save path selected:', filePath);
 
-      // Generate minimal HTML content for PDF
+      // Generate enhanced HTML content for PDF
       console.log('Generating HTML content...');
-      const htmlContent = this.generateSimplePDFHTML(data);
+      const htmlContent = this.generatePDFHTML(data);
       console.log('HTML content length:', htmlContent.length, 'characters');
       
       // Create a hidden window for PDF generation
@@ -357,49 +357,54 @@ ${callsText}
       line-height: 1.4;
       color: #000;
       background: #fff;
-      padding: 20px;
+      padding: 10px;
     }
     
     .header {
       text-align: center;
-      margin-bottom: 40px;
-      border-bottom: 2px solid #333;
-      padding-bottom: 20px;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #ddd;
     }
     
     .header h1 {
-      font-size: 28pt;
+      font-size: 16pt;
       font-weight: bold;
-      margin-bottom: 8pt;
+      margin-bottom: 4pt;
     }
     
     .header .date {
-      font-size: 18pt;
+      font-size: 12pt;
       color: #666;
-      margin-bottom: 8pt;
+      margin-bottom: 4pt;
     }
     
     .header .count {
-      font-size: 12pt;
+      font-size: 10pt;
       color: #666;
     }
     
     .call-card {
       border: 1px solid #ddd;
       border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 30px;
+      padding: 12px;
+      margin-bottom: 5px;
       page-break-inside: avoid;
       background: #fff;
+    }
+    
+    /* Force each service call to start on a new page (except first) */
+    .call-card:not(:first-child) {
+      page-break-before: always;
     }
     
     .call-header {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      margin-bottom: 20px;
+      gap: 10px;
+      margin-bottom: 10px;
       border-bottom: 1px solid #eee;
-      padding-bottom: 15px;
+      padding-bottom: 8px;
     }
     
     .call-title {
@@ -419,7 +424,7 @@ ${callsText}
     }
     
     .problem-section {
-      margin-bottom: 20px;
+      margin-bottom: 10px;
     }
     
     .problem-section h4 {
@@ -436,26 +441,63 @@ ${callsText}
       font-size: 11pt;
     }
     
+    /* AI Analysis Section */
+    .ai-analysis {
+      margin-bottom: 10px;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #f0f8ff;
+    }
+    
+    .ai-analysis h4 {
+      font-size: 11pt;
+      font-weight: bold;
+      margin-bottom: 4pt;
+      color: #0066cc;
+    }
+    
+    .ai-analysis .ai-info {
+      font-size: 9pt;
+      color: #333;
+      margin-bottom: 3pt;
+    }
+    
+    .ai-analysis .parts-list {
+      margin-top: 4pt;
+      padding: 4pt;
+      background: #fff;
+      border-radius: 2px;
+      border: 1px solid #ddd;
+    }
+    
+    .ai-analysis .parts-list .part-item {
+      font-size: 9pt;
+      margin-bottom: 2pt;
+      padding: 1pt 0;
+      border-bottom: 1px solid #eee;
+    }
+    
     .tech-notes {
       border-top: 1px solid #ddd;
-      padding-top: 15px;
+      padding-top: 8px;
     }
     
     .tech-notes h4 {
       font-size: 12pt;
       font-weight: bold;
-      margin-bottom: 12pt;
+      margin-bottom: 6pt;
     }
     
     .form-group {
-      margin-bottom: 15px;
+      margin-bottom: 10px;
     }
     
     .form-label {
       font-size: 10pt;
       font-weight: bold;
       color: #666;
-      margin-bottom: 4pt;
+      margin-bottom: 3pt;
       display: block;
     }
     
@@ -467,18 +509,27 @@ ${callsText}
       padding: 4pt;
     }
     
-    .form-field.large {
-      min-height: 60pt;
+    /* Compact form fields to fit on one page */
+    .form-field.diagnosis {
+      min-height: 40pt;
     }
     
-    .form-field.medium {
-      min-height: 40pt;
+    .form-field.work-performed {
+      min-height: 50pt;
+    }
+    
+    .form-field.parts-used {
+      min-height: 30pt;
+    }
+    
+    .form-field.time-field {
+      min-height: 25pt;
     }
     
     .form-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 15px;
+      gap: 10px;
     }
     
     .empty-state {
@@ -494,8 +545,8 @@ ${callsText}
     
     .footer {
       text-align: center;
-      margin-top: 40px;
-      padding-top: 20px;
+      margin-top: 20px;
+      padding-top: 10px;
       border-top: 1px solid #ddd;
       font-size: 10pt;
       color: #666;
@@ -513,6 +564,11 @@ ${callsText}
       
       .call-card {
         page-break-inside: avoid;
+      }
+      
+      /* Ensure each call starts on a new page */
+      .call-card:not(:first-child) {
+        page-break-before: always;
       }
     }
   </style>
@@ -551,24 +607,53 @@ ${callsText}
           <div class="problem-desc">${call.problemDesc}</div>
         </div>
         
+        ${(call.aiAnalysisResult || call.likelyProblem || call.suggestedParts?.length) ? `
+        <div class="ai-analysis">
+          <h4>🤖 AI Parts Analysis</h4>
+          
+          
+          ${call.aiAnalysisResult && (call.aiAnalysisResult.appliance || call.aiAnalysisResult.brand || call.aiAnalysisResult.modelNumber) ? `
+          <div class="ai-info"><strong>Appliance:</strong> ${call.aiAnalysisResult.appliance || 'N/A'} | <strong>Brand:</strong> ${call.aiAnalysisResult.brand || 'N/A'} | <strong>Model:</strong> ${call.aiAnalysisResult.modelNumber || 'N/A'}</div>` : ''}
+          
+          ${(call.aiAnalysisResult?.recommendedParts?.length || call.suggestedParts?.length) ? `
+          <div class="ai-info"><strong>Recommended Parts:</strong></div>
+          <div class="parts-list">
+            ${call.aiAnalysisResult?.recommendedParts?.length ? 
+              call.aiAnalysisResult.recommendedParts.map(part => `<div class="part-item">• ${part.name} (${part.partNumber || 'N/A'}) - $${part.price || 'N/A'}</div>`).join('') :
+              call.suggestedParts?.map(part => `<div class="part-item">• ${part}</div>`).join('')
+            }
+          </div>` : ''}
+          
+          ${call.aiAnalysisResult?.analysisNotes?.length ? `
+          <div class="ai-info"><strong>Analysis Notes:</strong> ${call.aiAnalysisResult.analysisNotes.join(' • ')}</div>` : ''}
+        </div>` : ''}
+        
         <div class="tech-notes">
           <h4>Technician Notes:</h4>
+          
+          <div class="form-group">
+            <label class="form-label">Diagnosis & Findings:</label>
+            <div class="form-field diagnosis"></div>
+          </div>
+          
           <div class="form-group">
             <label class="form-label">Work Performed:</label>
-            <div class="form-field large"></div>
+            <div class="form-field work-performed"></div>
           </div>
+          
           <div class="form-group">
             <label class="form-label">Parts Used:</label>
-            <div class="form-field medium"></div>
+            <div class="form-field parts-used"></div>
           </div>
+          
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Time Started:</label>
-              <div class="form-field"></div>
+              <div class="form-field time-field"></div>
             </div>
             <div class="form-group">
               <label class="form-label">Time Completed:</label>
-              <div class="form-field"></div>
+              <div class="form-field time-field"></div>
             </div>
           </div>
         </div>

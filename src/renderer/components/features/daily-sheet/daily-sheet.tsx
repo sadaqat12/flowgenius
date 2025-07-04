@@ -142,7 +142,7 @@ export default function DailySheet({ selectedDate = new Date(), onDateChange }: 
             variant="outline"
             size="sm"
             onClick={handlePrint}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 hidden"
           >
             <Printer className="h-4 w-4" />
             Print
